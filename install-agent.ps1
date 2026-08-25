@@ -84,7 +84,6 @@ New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceDir 'server.js') -Destination (Join-Path $installDir 'server.js') -Force
 Copy-Item -LiteralPath (Join-Path $sourceDir 'print-raw.ps1') -Destination (Join-Path $installDir 'print-raw.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $sourceDir 'package.json') -Destination (Join-Path $installDir 'package.json') -Force
-Copy-Item -LiteralPath (Join-Path $sourceDir 'run-agent-hidden.vbs') -Destination (Join-Path $installDir 'run-agent-hidden.vbs') -Force
 
 $config = [ordered]@{
     port = 8765
@@ -105,7 +104,6 @@ $tokenFile = @(
 
 $nodeCommand = Get-Command node -ErrorAction Stop
 $serverPath = Join-Path $installDir 'server.js'
-$runnerPath = Join-Path $installDir 'run-agent-hidden.vbs'
 
 # Si se reinstala y cambia el token, detener la instancia anterior para que
 # no siga atendiendo con la configuración vieja.
@@ -114,13 +112,22 @@ Start-Sleep -Milliseconds 300
 Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -and $_.CommandLine.Contains($serverPath) } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+try { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue } catch {}
 
-$arguments = '"{0}" "{1}" "{2}" "{3}"' -f $runnerPath, $nodeCommand.Source, $serverPath, $configPath
-$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument $arguments
+$arguments = '"{0}" --config "{1}"' -f $serverPath, $configPath
+$action = New-ScheduledTaskAction -Execute $nodeCommand.Source -Argument $arguments -WorkingDirectory $installDir
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
+$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
 Start-ScheduledTask -TaskName $taskName
+Start-Sleep -Milliseconds 800
+$healthHeaders = @{ Authorization = 'Bearer ' + $token }
+try {
+    Invoke-WebRequest -Uri ('http://127.0.0.1:{0}/health' -f $config.port) -Headers $healthHeaders -TimeoutSec 5 | Out-Null
+} catch {
+    throw 'La configuración se guardó, pero el agente no pudo iniciarse. Ejecutá iniciar-agente.bat para ver el error.'
+}
 
 Write-Host ''
 Write-Host 'Instalación completada.' -ForegroundColor Green
