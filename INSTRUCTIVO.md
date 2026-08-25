@@ -2,6 +2,8 @@
 
 Este proyecto reemplaza QZ Tray para imprimir tickets ESC/POS directamente desde una web en Windows, sin abrir el diálogo de impresión del navegador.
 
+Para ver cómo se vería la pantalla de configuración y cómo se arma la solicitud, abrí [demo-configuracion.html](demo-configuracion.html). Es una demostración visual: no conecta ni imprime.
+
 La arquitectura es:
 
 ```text
@@ -247,3 +249,16 @@ Eso significa que la web está usando un respaldo de impresión del navegador o 
    git commit -m "Describe el cambio"
    git push
    ```
+
+## 13. Ejemplo visual completo
+
+La demo incluida en `demo-configuracion.html` representa la pantalla que puede agregar cualquier web:
+
+1. Campo para pegar el token local.
+2. Estado de conexión con el agente.
+3. Lista múltiple de impresoras.
+4. Botón para buscar impresoras.
+5. Botón de prueba.
+6. Vista del JSON que se enviaría a `/print`.
+
+La demo no contiene un token real y no debe usarse como sustituto de la integración de producción. Para producción, reemplazá la simulación por `fetch()` usando el ejemplo de `EJEMPLO-INTEGRACION.js`.

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo - Alternativa a QZ Tray OC</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#64748b; --line:#dbe3ee; --surface:#fff; --soft:#f4f7fb; --primary:#2563eb; --ok:#16a34a; --error:#dc2626; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#eef2f7; color:var(--ink); font:15px/1.45 Inter,Segoe UI,Arial,sans-serif; }
+    .shell { max-width:1120px; margin:32px auto; padding:0 18px; }
+    .top { display:flex; justify-content:space-between; gap:20px; align-items:end; margin-bottom:18px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:4px; font-size:28px; }
+    .subtle { color:var(--muted); }
+    .grid { display:grid; grid-template-columns:minmax(310px,430px) minmax(0,1fr); gap:18px; align-items:start; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 24px #18315312; padding:22px; }
+    .eyebrow { color:#6d3df5; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; margin-bottom:5px; }
+    label { display:block; font-weight:700; margin:14px 0 6px; }
+    input,select,button { width:100%; border:1px solid #cbd5e1; border-radius:9px; background:#fff; color:var(--ink); font:inherit; padding:11px 12px; }
+    select { min-height:116px; }
+    button { cursor:pointer; background:var(--primary); color:#fff; border-color:var(--primary); font-weight:800; margin-top:14px; }
+    button.secondary { background:#fff; color:var(--ink); border-color:var(--line); }
+    .hint { font-size:12px; color:var(--muted); margin:5px 0 0; }
+    .status { display:flex; align-items:center; gap:9px; padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--soft); }
+    .dot { width:10px; height:10px; border-radius:50%; background:var(--error); }
+    .dot.ok { background:var(--ok); }
+    pre { margin:0; overflow:auto; padding:15px; border-radius:9px; background:#111827; color:#e5edf8; font:12px/1.55 Consolas,monospace; min-height:170px; }
+    .flow { display:grid; gap:10px; margin-bottom:18px; }
+    .step { display:grid; grid-template-columns:28px 1fr; gap:10px; align-items:start; }
+    .number { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; color:#fff; background:var(--primary); font-weight:800; }
+    .step strong { display:block; margin-top:3px; }
+    .step span { color:var(--muted); font-size:13px; }
+    .notice { border-left:4px solid #f59e0b; background:#fffbeb; padding:11px 13px; color:#713f12; font-size:13px; }
+    @media (max-width:760px) { .grid { grid-template-columns:1fr; } .top { display:block; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div>
+        <div class="eyebrow">Alternativa a QZ Tray OC</div>
+        <h1>Configuración del agente local</h1>
+        <p class="subtle">Demo visual del panel que usaría una web para imprimir sin abrir Windows.</p>
+      </div>
+      <div class="notice">Esta página es una simulación. No envía trabajos ni imprime.</div>
+    </header>
+
+    <section class="grid">
+      <form class="card" id="config-form">
+        <h2>Impresora térmica</h2>
+        <p class="subtle">La web guarda esta configuración solamente en el navegador de este equipo.</p>
+
+        <div class="status" aria-live="polite"><span class="dot" id="status-dot"></span><strong id="status-text">Agente local no consultado</strong></div>
+
+        <label for="token">Token del agente local</label>
+        <input id="token" type="password" placeholder="Pegá el token generado por el instalador" value="TOKEN_DE_EJEMPLO">
+        <p class="hint">En producción se obtiene desde token.txt y no se publica en el repositorio.</p>
+
+        <label for="printers">Impresoras seleccionadas</label>
+        <select id="printers" multiple>
+          <option selected>ImpCaja</option>
+          <option selected>POS-58</option>
+          <option>Impresora portatil</option>
+        </select>
+        <p class="hint">Con Ctrl se pueden seleccionar varias. El mismo ticket se envía a todas.</p>
+
+        <button type="button" id="connect">Simular conectar y buscar</button>
+        <button type="button" class="secondary" id="test">Simular ticket de prueba</button>
+      </form>
+
+      <div>
+        <section class="card flow">
+          <h2>Qué sucede cuando llega un pedido</h2>
+          <div class="step"><div class="number">1</div><div><strong>La web recibe el pedido</strong><span>El sistema obtiene cliente, productos y total.</span></div></div>
+          <div class="step"><div class="number">2</div><div><strong>La web llama a localhost</strong><span>Envía JSON a http://127.0.0.1:8765/print con el token.</span></div></div>
+          <div class="step"><div class="number">3</div><div><strong>El agente transforma el ticket</strong><span>Genera comandos ESC/POS de 58 mm.</span></div></div>
+          <div class="step"><div class="number">4</div><div><strong>Windows imprime en ambas</strong><span>El spooler recibe el trabajo RAW y no aparece el diálogo del navegador.</span></div></div>
+        </section>
+
+        <section class="card">
+          <h2>Datos intercambiados</h2>
+          <p class="subtle">Ejemplo de solicitud que la web enviaría al agente:</p>
+          <pre id="json-output"></pre>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('config-form');
+    const token = document.getElementById('token');
+    const printers = document.getElementById('printers');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const output = document.getElementById('json-output');
+
+    function requestExample() {
+      return {
+        jobId: 'pedido-123-1710000000000',
+        printerNames: Array.from(printers.selectedOptions).map((option) => option.value),
+        ticket: {
+          id: '123',
+          business: 'Mi comercio',
+          client: 'Cliente de ejemplo',
+          rows: [{ name: 'Producto', quantity: 1, price: 290 }],
+          total: 290,
+        },
+      };
+    }
+
+    function render() { output.textContent = JSON.stringify(requestExample(), null, 2); }
+    printers.addEventListener('change', render);
+    form.addEventListener('submit', (event) => event.preventDefault());
+    document.getElementById('connect').addEventListener('click', () => {
+      statusDot.classList.add('ok');
+      statusText.textContent = 'Agente local conectado (demo)';
+    });
+    document.getElementById('test').addEventListener('click', () => {
+      output.textContent = JSON.stringify({
+        endpoint: 'POST http://127.0.0.1:8765/test',
+        authorization: 'Bearer ' + (token.value || 'TOKEN_DE_EJEMPLO'),
+        printerNames: Array.from(printers.selectedOptions).map((option) => option.value),
+      }, null, 2);
+    });
+    render();
+  </script>
+</body>
+</html>

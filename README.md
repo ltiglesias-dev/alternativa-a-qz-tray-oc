@@ -6,6 +6,8 @@ El instalador conserva el nombre interno `Agendarte Printer Agent` por compatibi
 
 Este proyecto también puede conectarse a cualquier web autorizada. La guía completa está en [INSTRUCTIVO.md](INSTRUCTIVO.md) y el ejemplo de integración en [EJEMPLO-INTEGRACION.js](EJEMPLO-INTEGRACION.js).
 
+También podés abrir la [demo visual de configuración](demo-configuracion.html) para ver la pantalla, el flujo y el JSON intercambiado.
+
 ## Instalación
 
 1. Verificá que Node.js esté instalado.
