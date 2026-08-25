@@ -1,0 +1,10 @@
+# Nunca publicar configuraciones ni credenciales locales.
+config.json
+token.txt
+*.log
+node_modules/
+
+# Archivos temporales de Windows y editores.
+Thumbs.db
+.DS_Store
+.vscode/

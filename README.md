@@ -1,0 +1,53 @@
+# Agendarte Printer Agent
+
+Agente local para imprimir tickets ESC/POS de 58 mm desde Agendarte en Windows.
+
+Este proyecto también puede conectarse a cualquier web autorizada. La guía completa está en [INSTRUCTIVO.md](INSTRUCTIVO.md) y el ejemplo de integración en [EJEMPLO-INTEGRACION.js](EJEMPLO-INTEGRACION.js).
+
+## Instalación
+
+1. Verificá que Node.js esté instalado.
+2. Ejecutá `instalar-agente.bat`.
+3. Ingresá la web autorizada.
+4. Indicá cuántas impresoras usarás.
+5. Escribí el nombre exacto de cada impresora de Windows.
+
+El instalador copia el agente a `%LOCALAPPDATA%\AgendartePrinterAgent`, crea la configuración y registra una tarea oculta para iniciar el servicio al iniciar sesión en Windows.
+
+También crea `%LOCALAPPDATA%\AgendartePrinterAgent\token.txt` con el token vigente y la fecha/hora de generación. Si se vuelve a ejecutar el instalador, ese archivo se actualiza y el token anterior deja de ser válido.
+
+Para abrirlo rápidamente, ejecutá `ver-token.bat`.
+
+## API local
+
+- `GET http://127.0.0.1:8765/health`
+- `GET http://127.0.0.1:8765/printers`
+- `POST http://127.0.0.1:8765/print`
+- `POST http://127.0.0.1:8765/test`
+
+Las solicitudes desde la web deben incluir el token generado por el instalador:
+
+```http
+Authorization: Bearer TOKEN_LOCAL
+Content-Type: application/json
+```
+
+Ejemplo de impresión:
+
+```json
+{
+  "jobId": "pedido-123",
+  "printerName": "Nombre exacto de Windows",
+  "ticket": {
+    "id": "123",
+    "business": "Mi comercio",
+    "client": "Lucas",
+    "rows": [
+      { "name": "Producto", "quantity": 1, "price": 150 }
+    ],
+    "total": 150
+  }
+}
+```
+
+El agente envía el trabajo como `RAW` al spooler de Windows, con un máximo seguro de 32 columnas para papel de 58 mm.
