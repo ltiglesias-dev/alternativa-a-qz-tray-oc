@@ -1,6 +1,8 @@
-# Agendarte Printer Agent
+# Alternativa a QZ Tray OC
 
-Agente local para imprimir tickets ESC/POS de 58 mm desde Agendarte en Windows.
+Agente local para imprimir tickets ESC/POS de 58 mm desde cualquier web en Windows.
+
+El instalador conserva el nombre interno `Agendarte Printer Agent` por compatibilidad con la instalación existente.
 
 Este proyecto también puede conectarse a cualquier web autorizada. La guía completa está en [INSTRUCTIVO.md](INSTRUCTIVO.md) y el ejemplo de integración en [EJEMPLO-INTEGRACION.js](EJEMPLO-INTEGRACION.js).
 
