@@ -163,7 +163,7 @@ $folder.Size = New-Object System.Drawing.Size(190, 38)
 $form.Controls.Add($folder)
 
 $worker = New-Object System.ComponentModel.BackgroundWorker
-$worker.DoWork += {
+$worker.add_DoWork({
     param($sender, $eventArgs)
     $payload = $eventArgs.Argument
     try {
@@ -181,9 +181,9 @@ $worker.DoWork += {
             Error = $_.Exception.Message
         }
     }
-}
+})
 
-$worker.RunWorkerCompleted += {
+$worker.add_RunWorkerCompleted({
     param($sender, $eventArgs)
     $save.Enabled = $true
     if ($eventArgs.Error) {
@@ -201,7 +201,7 @@ $worker.RunWorkerCompleted += {
     $copy.Enabled = $true
     $status.Text = ('Agente activo en segundo plano. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
     [System.Windows.Forms.MessageBox]::Show('Configuración completada. El agente quedó activo y se iniciará solo con Windows.', 'Agendarte Printer Agent', 'OK', 'Information') | Out-Null
-}
+})
 
 function Refresh-PrinterList {
     $printerList.Items.Clear()
