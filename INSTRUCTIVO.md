@@ -93,7 +93,7 @@ El origen exacto de la web debe haber sido cargado durante la instalación. El n
 Para no repetir el código de `fetch()` en cada proyecto, incluí este archivo público:
 
 ```html
-<script src="https://raw.githubusercontent.com/viernes69/alternativa-a-qz-tray-oc/main/agendarte-printer-client.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/viernes69/alternativa-a-qz-tray-oc@main/agendarte-printer-client.js"></script>
 ```
 
 Después creá un cliente por perfil de uso. El perfil permite guardar configuraciones distintas en el mismo equipo, por ejemplo `caja`, `cocina` o `mostrador`:

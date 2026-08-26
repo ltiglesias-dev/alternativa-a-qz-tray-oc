@@ -2,7 +2,7 @@
  * Cliente universal para Agendarte Printer Agent.
  *
  * Uso desde cualquier web:
- * <script src="https://raw.githubusercontent.com/viernes69/alternativa-a-qz-tray-oc/main/agendarte-printer-client.js"></script>
+ * <script src="https://cdn.jsdelivr.net/gh/viernes69/alternativa-a-qz-tray-oc@main/agendarte-printer-client.js"></script>
  *
  * El token se guarda solamente en localStorage del equipo que imprime.
  */

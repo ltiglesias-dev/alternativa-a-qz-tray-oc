@@ -11,7 +11,7 @@ También podés abrir la [demo visual de configuración](demo-configuracion.html
 Para una integración rápida, incluí [agendarte-printer-client.js](agendarte-printer-client.js) en la web. Ese cliente guarda el token y las impresoras por perfil en el navegador y expone `connect()`, `discover()`, `print()` y `test()`. Hay una página funcional completa en [EJEMPLO-PAGINA-INTEGRADA.html](EJEMPLO-PAGINA-INTEGRADA.html).
 
 ```html
-<script src="https://raw.githubusercontent.com/viernes69/alternativa-a-qz-tray-oc/main/agendarte-printer-client.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/viernes69/alternativa-a-qz-tray-oc@main/agendarte-printer-client.js"></script>
 <script>
   (async () => {
     const impresora = AgendartePrinter.create({ profile: 'mi-comercio' });
