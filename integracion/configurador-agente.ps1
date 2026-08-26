@@ -1,10 +1,11 @@
-﻿$ErrorActionPreference = 'Stop'
-
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-[System.Windows.Forms.Application]::EnableVisualStyles()
+param(
+    [switch]$Worker,
+    [string]$RequestPath,
+    [string]$ResultPath
+)
 
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$configuratorScriptPath = $MyInvocation.MyCommand.Path
 $installDir = Join-Path ($env:LOCALAPPDATA) 'AgendartePrinterAgent'
 $configPath = Join-Path $installDir 'config.json'
 $tokenPath = Join-Path $installDir 'token.txt'
@@ -120,6 +121,36 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     return $token
 }
 
+if ($Worker) {
+    try {
+        if (-not (Test-Path -LiteralPath $RequestPath)) { throw 'No se encontró la solicitud de configuración.' }
+        $requestJson = [System.IO.File]::ReadAllText($RequestPath, [System.Text.UTF8Encoding]::new($false))
+        $payload = $requestJson | ConvertFrom-Json
+        $token = Install-Agent $payload.Origins $payload.Printers
+        $result = [pscustomobject]@{
+            Success = $true
+            Token = $token
+            Printers = @($payload.Printers)
+            Error = ''
+        }
+    } catch {
+        $details = Get-ErrorDetails $_
+        Save-ConfiguratorError $details
+        $result = [pscustomobject]@{
+            Success = $false
+            Token = ''
+            Printers = @()
+            Error = $details
+        }
+    }
+    [System.IO.File]::WriteAllText($ResultPath, ($result | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
+    exit 0
+}
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
 function New-Label([string]$text, [int]$x, [int]$y, [int]$width = 150) {
     $label = New-Object System.Windows.Forms.Label
     $label.Text = $text
@@ -204,49 +235,52 @@ $folder.Location = New-Object System.Drawing.Point(280, 535)
 $folder.Size = New-Object System.Drawing.Size(190, 38)
 $form.Controls.Add($folder)
 
-$worker = New-Object System.ComponentModel.BackgroundWorker
-$worker.add_DoWork({
-    param($sender, $eventArgs)
-    $payload = $eventArgs.Argument
-    try {
-        $eventArgs.Result = [pscustomobject]@{
-            Success = $true
-            Token = Install-Agent $payload.Origins $payload.Printers
-            Printers = @($payload.Printers)
-            Error = ''
-        }
-    } catch {
-        $details = Get-ErrorDetails $_
-        Save-ConfiguratorError $details
-        $eventArgs.Result = [pscustomobject]@{
-            Success = $false
-            Token = ''
-            Printers = @()
-            Error = $details
-        }
-    }
-})
+$installProcess = $null
+$installTimer = New-Object System.Windows.Forms.Timer
+$installTimer.Interval = 250
 
-$worker.add_RunWorkerCompleted({
-    param($sender, $eventArgs)
+function Complete-Install([object]$result) {
     $save.Enabled = $true
-    if ($eventArgs.Error) {
-        $details = Get-ErrorDetails $eventArgs.Error
-        Save-ConfiguratorError $details
-        $status.Text = 'No se pudo completar la configuración.'
-        Show-Notice $details 'Error de configuración'
-        return
-    }
-    $result = $eventArgs.Result
     if (-not $result.Success) {
         $status.Text = 'No se pudo completar la configuración.'
-        Show-Notice $result.Error 'Error de configuración'
+        $details = Get-ErrorDetails $result.Error
+        Show-Notice $details 'Error de configuración'
         return
     }
     $tokenBox.Text = $result.Token
     $copy.Enabled = $true
     $status.Text = ('Agente activo en segundo plano. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
     Show-Notice 'Configuración completada. El agente quedó activo y se iniciará solo con Windows.'
+}
+
+$installTimer.Add_Tick({
+    if (-not $installProcess) { return }
+    if (Test-Path -LiteralPath $script:resultPath) {
+        try {
+            $resultJson = [System.IO.File]::ReadAllText($script:resultPath, [System.Text.UTF8Encoding]::new($false))
+            $result = $resultJson | ConvertFrom-Json
+            $installTimer.Stop()
+            Complete-Install $result
+        } catch {
+            $installTimer.Stop()
+            $details = Get-ErrorDetails $_
+            Save-ConfiguratorError $details
+            $save.Enabled = $true
+            $status.Text = 'No se pudo completar la configuración.'
+            Show-Notice $details 'Error de configuración'
+        } finally {
+            Remove-Item -LiteralPath $script:requestPath, $script:resultPath -Force -ErrorAction SilentlyContinue
+            $script:installProcess = $null
+        }
+    } elseif ($installProcess.HasExited) {
+        $installTimer.Stop()
+        $details = 'El proceso de configuración terminó sin devolver un resultado. Consultá configurator-error.log.'
+        Save-ConfiguratorError $details
+        $save.Enabled = $true
+        $status.Text = 'No se pudo completar la configuración.'
+        Show-Notice $details 'Error de configuración'
+        $script:installProcess = $null
+    }
 })
 
 function Refresh-PrinterList {
@@ -268,7 +302,15 @@ $save.Add_Click({
         $status.Text = 'Guardando configuración y activando el agente...'
         $form.Refresh()
         $selectedForInstall = @($selected)
-        $worker.RunWorkerAsync([pscustomobject]@{ Origins = @($origins); Printers = @($selectedForInstall) })
+        $operationId = [Guid]::NewGuid().ToString('N')
+        $script:requestPath = Join-Path ([IO.Path]::GetTempPath()) ('agendarte-agent-' + $operationId + '.request.json')
+        $script:resultPath = Join-Path ([IO.Path]::GetTempPath()) ('agendarte-agent-' + $operationId + '.result.json')
+        $payload = [pscustomobject]@{ Origins = @($origins); Printers = @($selectedForInstall) }
+        [IO.File]::WriteAllText($script:requestPath, ($payload | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+        $powershell = Get-Command powershell.exe -ErrorAction Stop
+        $workerArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Worker -RequestPath "{1}" -ResultPath "{2}"' -f $configuratorScriptPath, $script:requestPath, $script:resultPath
+        $script:installProcess = Start-Process -FilePath $powershell.Source -ArgumentList $workerArguments -WorkingDirectory $sourceDir -WindowStyle Hidden -PassThru
+        $installTimer.Start()
     } catch {
         $details = Get-ErrorDetails $_
         Save-ConfiguratorError $details
