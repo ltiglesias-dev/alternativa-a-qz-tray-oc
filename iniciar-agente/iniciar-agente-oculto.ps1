@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $installDir = Join-Path ($env:LOCALAPPDATA) 'AgendartePrinterAgent'
 $taskName = 'Agendarte Printer Agent'
 $serverPath = Join-Path $installDir 'server.js'

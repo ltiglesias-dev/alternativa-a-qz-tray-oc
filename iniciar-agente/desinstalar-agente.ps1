@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'SilentlyContinue'
+﻿$ErrorActionPreference = 'SilentlyContinue'
 $taskName = 'Agendarte Printer Agent'
 $installDir = Join-Path ($env:LOCALAPPDATA) 'AgendartePrinterAgent'
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false

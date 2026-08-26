@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $installDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $serverPath = Join-Path $installDir 'server.js'

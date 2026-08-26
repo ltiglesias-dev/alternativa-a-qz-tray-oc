@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $installDir = Join-Path ($env:LOCALAPPDATA) 'AgendartePrinterAgent'
