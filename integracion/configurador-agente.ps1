@@ -67,6 +67,29 @@ function Save-ConfiguratorError([string]$details) {
     } catch {}
 }
 
+function Set-EdgeLoopbackPolicy([string[]]$origins) {
+    # Edge admite esta política por usuario, por lo que no requiere elevar
+    # permisos ni modificar la configuración de otras cuentas de Windows.
+    $policyPath = 'HKCU:\Software\Policies\Microsoft\Edge\LoopbackNetworkAllowedForUrls'
+    try {
+        New-Item -Path $policyPath -Force | Out-Null
+        $current = Get-ItemProperty -Path $policyPath -ErrorAction SilentlyContinue
+        if ($current) {
+            $current.PSObject.Properties |
+                Where-Object { $_.Name -match '^\d+$' } |
+                ForEach-Object { Remove-ItemProperty -Path $policyPath -Name $_.Name -ErrorAction SilentlyContinue }
+        }
+        $index = 1
+        foreach ($origin in @($origins)) {
+            New-ItemProperty -Path $policyPath -Name ([string]$index) -PropertyType String -Value ([string]$origin) -Force | Out-Null
+            $index++
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     $token = New-AgentToken
     New-Item -ItemType Directory -Path $installDir -Force | Out-Null
@@ -95,10 +118,11 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
     Start-ScheduledTask -TaskName $taskName
+    $edgePolicyApplied = Set-EdgeLoopbackPolicy $origins
     # La interfaz recibe el token apenas termina la instalación. La salud del
     # agente se comprueba desde el temporizador de la ventana para que una
     # demora de localhost nunca deje el configurador bloqueado.
-    return $token
+    return [pscustomobject]@{ Token = $token; EdgePolicyApplied = $edgePolicyApplied }
 }
 
 if ($Worker) {
@@ -106,11 +130,12 @@ if ($Worker) {
         if (-not (Test-Path -LiteralPath $RequestPath)) { throw 'No se encontró la solicitud de configuración.' }
         $requestJson = [System.IO.File]::ReadAllText($RequestPath, [System.Text.UTF8Encoding]::new($false))
         $payload = $requestJson | ConvertFrom-Json
-        $token = Install-Agent $payload.Origins $payload.Printers
+        $installResult = Install-Agent $payload.Origins $payload.Printers
         $result = [pscustomobject]@{
             Success = $true
-            Token = $token
+            Token = $installResult.Token
             Printers = @($payload.Printers)
+            EdgePolicyApplied = [bool]$installResult.EdgePolicyApplied
             Error = ''
         }
     } catch {
@@ -120,6 +145,7 @@ if ($Worker) {
             Success = $false
             Token = ''
             Printers = @()
+            EdgePolicyApplied = $false
             Error = $details
         }
     }
@@ -235,7 +261,12 @@ function Complete-Install([object]$result) {
     $tokenBox.Text = $result.Token
     $copy.Enabled = $true
     $installTimer.Stop()
-    $status.Text = ('Agente activo en segundo plano. Token listo para copiar. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
+    if ($result.EdgePolicyApplied) {
+        $permissionStatus = ' Permiso local de Edge configurado.'
+    } else {
+        $permissionStatus = ' Edge no permitió configurar la política; aceptá el permiso una vez en el navegador.'
+    }
+    $status.Text = ('Agente activo en segundo plano. Token listo para copiar.' + $permissionStatus + ' Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
 }
 
 $installTimer.Add_Tick({
