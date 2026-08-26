@@ -53,6 +53,7 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     Copy-Item -LiteralPath (Join-Path $sourceDir 'server.js') -Destination (Join-Path $installDir 'server.js') -Force
     Copy-Item -LiteralPath (Join-Path $sourceDir 'print-raw.ps1') -Destination (Join-Path $installDir 'print-raw.ps1') -Force
     Copy-Item -LiteralPath (Join-Path $sourceDir 'package.json') -Destination (Join-Path $installDir 'package.json') -Force
+    Copy-Item -LiteralPath (Join-Path $sourceDir 'ejecutar-agente-oculto.ps1') -Destination (Join-Path $installDir 'ejecutar-agente-oculto.ps1') -Force
 
     $printerConfigs = @()
     for ($i = 0; $i -lt $selectedPrinters.Count; $i++) {
@@ -64,15 +65,22 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     [System.IO.File]::WriteAllText($tokenPath, $tokenText, [System.Text.UTF8Encoding]::new($false))
 
     Stop-Agent
-    $nodeCommand = Get-Command node -ErrorAction Stop
     $serverPath = Join-Path $installDir 'server.js'
-    $arguments = '"{0}" --config "{1}"' -f $serverPath, $configPath
-    $action = New-ScheduledTaskAction -Execute $nodeCommand.Source -Argument $arguments -WorkingDirectory $installDir
+    $runnerPath = Join-Path $installDir 'ejecutar-agente-oculto.ps1'
+    $powershell = Get-Command powershell.exe -ErrorAction Stop
+    $runnerArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $runnerPath
+    $action = New-ScheduledTaskAction -Execute $powershell.Source -Argument $runnerArguments -WorkingDirectory $installDir
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
     Start-ScheduledTask -TaskName $taskName
+    Start-Sleep -Milliseconds 800
+    try {
+        Invoke-WebRequest -Uri 'http://127.0.0.1:8765/health' -Headers @{ Authorization = 'Bearer ' + $token } -TimeoutSec 5 | Out-Null
+    } catch {
+        throw 'La configuración se guardó, pero el agente no pudo iniciarse. Revisá que Node.js esté instalado y volvé a intentar.'
+    }
     return $token
 }
 

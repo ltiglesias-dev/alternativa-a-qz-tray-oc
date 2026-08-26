@@ -51,7 +51,7 @@ El instalador:
 - Inicia el proceso local.
 - Crea `token.txt` con el token vigente y la fecha/hora.
 
-El agente queda registrado como una tarea oculta de Windows. No es necesario dejar abierto un CMD; `iniciar-agente.bat` solamente vuelve a iniciar esa tarea si hace falta.
+El agente queda registrado como una tarea oculta de Windows. No es necesario dejar abierto un CMD; `iniciar-agente.bat` o `iniciar-agente.vbs` solamente vuelven a iniciar esa tarea si hace falta. El `.vbs` es la opción totalmente silenciosa si se lo ejecuta desde el Explorador.
 
 Para consultar el token, ejecutá `ver-token.bat`. No publiques ni compartas ese archivo.
 

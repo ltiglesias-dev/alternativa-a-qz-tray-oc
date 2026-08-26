@@ -49,7 +49,7 @@ Para abrirlo rápidamente, ejecutá `ver-token.bat`.
 
 Después de guardar la configuración, Node queda ejecutándose como una tarea oculta de Windows. No hay que dejar abierta una ventana de CMD: si se cierra la consola que se usaba antes, el proceso terminaba; con esta versión, el agente queda separado de la consola y se inicia automáticamente al iniciar sesión.
 
-Si alguna vez necesitás iniciarlo manualmente, ejecutá `iniciar-agente.bat`. El comando inicia la tarea existente sin mostrar la consola.
+Si alguna vez necesitás iniciarlo manualmente, ejecutá `iniciar-agente.bat` o `iniciar-agente.vbs`. Ambos inician la tarea existente sin mostrar la consola; el `.vbs` tampoco deja visible una ventana fugaz del CMD.
 
 Para cambiar la web, el token o las impresoras, ejecutá nuevamente `instalar-agente.bat` y guardá la nueva configuración.
 

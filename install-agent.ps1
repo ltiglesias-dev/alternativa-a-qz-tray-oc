@@ -84,6 +84,7 @@ New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceDir 'server.js') -Destination (Join-Path $installDir 'server.js') -Force
 Copy-Item -LiteralPath (Join-Path $sourceDir 'print-raw.ps1') -Destination (Join-Path $installDir 'print-raw.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $sourceDir 'package.json') -Destination (Join-Path $installDir 'package.json') -Force
+Copy-Item -LiteralPath (Join-Path $sourceDir 'ejecutar-agente-oculto.ps1') -Destination (Join-Path $installDir 'ejecutar-agente-oculto.ps1') -Force
 
 $config = [ordered]@{
     port = 8765
@@ -102,7 +103,6 @@ $tokenFile = @(
 ) -join [Environment]::NewLine
 [System.IO.File]::WriteAllText($tokenPath, $tokenFile, [System.Text.UTF8Encoding]::new($false))
 
-$nodeCommand = Get-Command node -ErrorAction Stop
 $serverPath = Join-Path $installDir 'server.js'
 
 # Si se reinstala y cambia el token, detener la instancia anterior para que
@@ -114,8 +114,10 @@ Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyC
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 try { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue } catch {}
 
-$arguments = '"{0}" --config "{1}"' -f $serverPath, $configPath
-$action = New-ScheduledTaskAction -Execute $nodeCommand.Source -Argument $arguments -WorkingDirectory $installDir
+$runnerPath = Join-Path $installDir 'ejecutar-agente-oculto.ps1'
+$powershell = Get-Command powershell.exe -ErrorAction Stop
+$runnerArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $runnerPath
+$action = New-ScheduledTaskAction -Execute $powershell.Source -Argument $runnerArguments -WorkingDirectory $installDir
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
