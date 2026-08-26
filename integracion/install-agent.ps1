@@ -36,7 +36,19 @@ function Set-EdgeLoopbackPolicy([string[]]$origins) {
         }
         return $true
     } catch {
-        return $false
+        $originsFile = Join-Path ([IO.Path]::GetTempPath()) ('agendarte-edge-origins-' + [Guid]::NewGuid().ToString('N') + '.json')
+        $helperPath = Join-Path $sourceDir 'configurar-politica-edge.ps1'
+        try {
+            [IO.File]::WriteAllText($originsFile, ($origins | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+            $powershell = Get-Command powershell.exe -ErrorAction Stop
+            $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "{0}" -OriginsFile "{1}"' -f $helperPath, $originsFile
+            $elevated = Start-Process -FilePath $powershell.Source -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+            return ($elevated.ExitCode -eq 0)
+        } catch {
+            return $false
+        } finally {
+            Remove-Item -LiteralPath $originsFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 

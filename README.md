@@ -41,7 +41,7 @@ La ventana muestra las impresoras detectadas, genera el token y permite copiarlo
 
 El instalador copia el agente a `%LOCALAPPDATA%\AgendartePrinterAgent`, crea la configuración y registra una tarea oculta para iniciar el servicio al iniciar sesión en Windows.
 
-En Windows, también registra en Edge una política de acceso al dispositivo local para las webs ingresadas. Esto evita que Edge vuelva a solicitar permiso al comunicarse con `127.0.0.1`. Si Edge estaba abierto durante la instalación, cerralo y abrilo nuevamente para que tome la política.
+En Windows, también registra en Edge una política de acceso al dispositivo local para las webs ingresadas. Esto evita que Edge vuelva a solicitar permiso al comunicarse con `127.0.0.1`. El instalador puede solicitar una autorización de administrador de Windows para registrar esta política. Si Edge estaba abierto durante la instalación, cerralo y abrilo nuevamente para que tome la política.
 
 También crea `%LOCALAPPDATA%\AgendartePrinterAgent\token.txt` con el token vigente y la fecha/hora de generación. Si se vuelve a ejecutar el instalador, ese archivo se actualiza y el token anterior deja de ser válido.
 

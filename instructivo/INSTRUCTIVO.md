@@ -54,7 +54,7 @@ El instalador:
 
 El agente queda registrado como una tarea oculta de Windows. No es necesario dejar abierto un CMD; `iniciar-agente.bat` o `iniciar-agente.vbs` solamente vuelven a iniciar esa tarea si hace falta. El `.vbs` es la opción totalmente silenciosa si se lo ejecuta desde el Explorador.
 
-Si Edge estaba abierto durante la instalación, cerralo y abrilo nuevamente. La política se aplica solamente a los orígenes ingresados en el configurador y al acceso de loopback (`127.0.0.1`, `localhost` o `::1`).
+Si Edge estaba abierto durante la instalación, cerralo y abrilo nuevamente. El instalador puede solicitar una autorización de administrador de Windows para registrar la política. La política se aplica solamente a los orígenes ingresados en el configurador y al acceso de loopback (`127.0.0.1`, `localhost` o `::1`).
 
 Para consultar el token, ejecutá `iniciar-agente\ver-token.bat`. No publiques ni compartas ese archivo.
 

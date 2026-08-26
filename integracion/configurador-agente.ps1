@@ -68,8 +68,6 @@ function Save-ConfiguratorError([string]$details) {
 }
 
 function Set-EdgeLoopbackPolicy([string[]]$origins) {
-    # Edge admite esta política por usuario, por lo que no requiere elevar
-    # permisos ni modificar la configuración de otras cuentas de Windows.
     $policyPath = 'HKCU:\Software\Policies\Microsoft\Edge\LoopbackNetworkAllowedForUrls'
     try {
         New-Item -Path $policyPath -Force | Out-Null
@@ -86,7 +84,22 @@ function Set-EdgeLoopbackPolicy([string[]]$origins) {
         }
         return $true
     } catch {
-        return $false
+        # Algunas instalaciones protegen la rama Policies incluso dentro de
+        # HKCU. En ese caso se solicita UAC una sola vez y se escribe la
+        # política en HKLM, que Edge aplica a todos los perfiles del equipo.
+        $originsFile = Join-Path ([IO.Path]::GetTempPath()) ('agendarte-edge-origins-' + [Guid]::NewGuid().ToString('N') + '.json')
+        $helperPath = Join-Path $sourceDir 'configurar-politica-edge.ps1'
+        try {
+            [IO.File]::WriteAllText($originsFile, ($origins | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+            $powershell = Get-Command powershell.exe -ErrorAction Stop
+            $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "{0}" -OriginsFile "{1}"' -f $helperPath, $originsFile
+            $elevated = Start-Process -FilePath $powershell.Source -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+            return ($elevated.ExitCode -eq 0)
+        } catch {
+            return $false
+        } finally {
+            Remove-Item -LiteralPath $originsFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -97,6 +110,7 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     Copy-Item -LiteralPath (Join-Path $sourceDir 'print-raw.ps1') -Destination (Join-Path $installDir 'print-raw.ps1') -Force
     Copy-Item -LiteralPath (Join-Path $sourceDir 'package.json') -Destination (Join-Path $installDir 'package.json') -Force
     Copy-Item -LiteralPath (Join-Path $sourceDir 'ejecutar-agente-oculto.ps1') -Destination (Join-Path $installDir 'ejecutar-agente-oculto.ps1') -Force
+    Copy-Item -LiteralPath (Join-Path $sourceDir 'configurar-politica-edge.ps1') -Destination (Join-Path $installDir 'configurar-politica-edge.ps1') -Force
 
     $printerConfigs = @()
     for ($i = 0; $i -lt $selectedPrinters.Count; $i++) {
