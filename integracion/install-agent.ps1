@@ -19,6 +19,27 @@ function Normalize-Origin([string]$value) {
     }
 }
 
+function Set-EdgeLoopbackPolicy([string[]]$origins) {
+    $policyPath = 'HKCU:\Software\Policies\Microsoft\Edge\LoopbackNetworkAllowedForUrls'
+    try {
+        New-Item -Path $policyPath -Force | Out-Null
+        $current = Get-ItemProperty -Path $policyPath -ErrorAction SilentlyContinue
+        if ($current) {
+            $current.PSObject.Properties |
+                Where-Object { $_.Name -match '^\d+$' } |
+                ForEach-Object { Remove-ItemProperty -Path $policyPath -Name $_.Name -ErrorAction SilentlyContinue }
+        }
+        $index = 1
+        foreach ($origin in @($origins)) {
+            New-ItemProperty -Path $policyPath -Name ([string]$index) -PropertyType String -Value ([string]$origin) -Force | Out-Null
+            $index++
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 Write-Host ''
 Write-Host '=== Instalador Agendarte Printer Agent ===' -ForegroundColor Cyan
 Write-Host 'El agente imprimirá tickets ESC/POS directamente en las impresoras configuradas.'
@@ -102,6 +123,7 @@ $tokenFile = @(
     ('Token: ' + $token)
 ) -join [Environment]::NewLine
 [System.IO.File]::WriteAllText($tokenPath, $tokenFile, [System.Text.UTF8Encoding]::new($false))
+$edgePolicyApplied = Set-EdgeLoopbackPolicy $origins
 
 $serverPath = Join-Path $installDir 'server.js'
 
@@ -149,6 +171,11 @@ Write-Host 'Instalación completada.' -ForegroundColor Green
 Write-Host ('Directorio: ' + $installDir)
 Write-Host ('Web autorizada: ' + ($origins -join ', '))
 Write-Host ('Impresoras: ' + (($printerConfigs | ForEach-Object { $_.name }) -join ', '))
+if ($edgePolicyApplied) {
+    Write-Host 'Permiso local de Microsoft Edge configurado para las webs autorizadas.' -ForegroundColor Green
+} else {
+    Write-Warning 'No se pudo configurar la política de Edge. Si aparece el aviso, presioná Permitir una vez.'
+}
 Write-Host 'El agente se iniciará automáticamente al iniciar sesión en Windows.'
 Write-Host ''
 Write-Host 'Token local para integrar la web:' -ForegroundColor Yellow
