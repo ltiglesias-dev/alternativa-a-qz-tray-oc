@@ -92,6 +92,12 @@ function New-Label([string]$text, [int]$x, [int]$y, [int]$width = 150) {
     return $label
 }
 
+function Show-Notice([string]$message, [string]$title = 'Agendarte Printer Agent') {
+    # Usamos únicamente la sobrecarga de dos textos. Windows PowerShell 5.1
+    # puede confundir las sobrecargas que reciben enums de Windows Forms.
+    [System.Windows.Forms.MessageBox]::Show([string]$message, [string]$title) | Out-Null
+}
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Agendarte Printer Agent'
 $form.StartPosition = 'CenterScreen'
@@ -188,34 +194,19 @@ $worker.add_RunWorkerCompleted({
     $save.Enabled = $true
     if ($eventArgs.Error) {
         $status.Text = 'No se pudo completar la configuración.'
-        [System.Windows.Forms.MessageBox]::Show(
-            $eventArgs.Error.Exception.Message,
-            'Error de configuración',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        ) | Out-Null
+        Show-Notice $eventArgs.Error.Exception.Message 'Error de configuración'
         return
     }
     $result = $eventArgs.Result
     if (-not $result.Success) {
         $status.Text = 'No se pudo completar la configuración.'
-        [System.Windows.Forms.MessageBox]::Show(
-            $result.Error,
-            'Error de configuración',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        ) | Out-Null
+        Show-Notice $result.Error 'Error de configuración'
         return
     }
     $tokenBox.Text = $result.Token
     $copy.Enabled = $true
     $status.Text = ('Agente activo en segundo plano. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
-    [System.Windows.Forms.MessageBox]::Show(
-        'Configuración completada. El agente quedó activo y se iniciará solo con Windows.',
-        'Agendarte Printer Agent',
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Information
-    ) | Out-Null
+    Show-Notice 'Configuración completada. El agente quedó activo y se iniciará solo con Windows.'
 })
 
 function Refresh-PrinterList {
@@ -241,12 +232,7 @@ $save.Add_Click({
     } catch {
         $save.Enabled = $true
         $status.Text = 'No se pudo completar la configuración.'
-        [System.Windows.Forms.MessageBox]::Show(
-            $_.Exception.Message,
-            'Error de configuración',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        ) | Out-Null
+        Show-Notice $_.Exception.Message 'Error de configuración'
     }
 })
 
