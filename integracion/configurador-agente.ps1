@@ -162,6 +162,47 @@ $folder.Location = New-Object System.Drawing.Point(280, 535)
 $folder.Size = New-Object System.Drawing.Size(190, 38)
 $form.Controls.Add($folder)
 
+$worker = New-Object System.ComponentModel.BackgroundWorker
+$worker.DoWork += {
+    param($sender, $eventArgs)
+    $payload = $eventArgs.Argument
+    try {
+        $eventArgs.Result = [pscustomobject]@{
+            Success = $true
+            Token = Install-Agent $payload.Origins $payload.Printers
+            Printers = @($payload.Printers)
+            Error = ''
+        }
+    } catch {
+        $eventArgs.Result = [pscustomobject]@{
+            Success = $false
+            Token = ''
+            Printers = @()
+            Error = $_.Exception.Message
+        }
+    }
+}
+
+$worker.RunWorkerCompleted += {
+    param($sender, $eventArgs)
+    $save.Enabled = $true
+    if ($eventArgs.Error) {
+        $status.Text = 'No se pudo completar la configuración.'
+        [System.Windows.Forms.MessageBox]::Show($eventArgs.Error.Exception.Message, 'Error de configuración', 'OK', 'Error') | Out-Null
+        return
+    }
+    $result = $eventArgs.Result
+    if (-not $result.Success) {
+        $status.Text = 'No se pudo completar la configuración.'
+        [System.Windows.Forms.MessageBox]::Show($result.Error, 'Error de configuración', 'OK', 'Error') | Out-Null
+        return
+    }
+    $tokenBox.Text = $result.Token
+    $copy.Enabled = $true
+    $status.Text = ('Agente activo en segundo plano. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
+    [System.Windows.Forms.MessageBox]::Show('Configuración completada. El agente quedó activo y se iniciará solo con Windows.', 'Agendarte Printer Agent', 'OK', 'Information') | Out-Null
+}
+
 function Refresh-PrinterList {
     $printerList.Items.Clear()
     foreach ($printer in @(Get-InstalledPrinters)) { [void]$printerList.Items.Add($printer, $false) }
@@ -180,15 +221,13 @@ $save.Add_Click({
         $save.Enabled = $false
         $status.Text = 'Guardando configuración y activando el agente...'
         $form.Refresh()
-        $newToken = Install-Agent $origins $selected
-        $tokenBox.Text = $newToken
-        $copy.Enabled = $true
-        $status.Text = ('Agente activo en segundo plano. Impresoras: ' + (($selected | ForEach-Object { $_.Name }) -join ', '))
-        [System.Windows.Forms.MessageBox]::Show('Configuración completada. El agente quedó activo y se iniciará solo con Windows.', 'Agendarte Printer Agent', 'OK', 'Information') | Out-Null
+        $selectedForInstall = @($selected)
+        $worker.RunWorkerAsync([pscustomobject]@{ Origins = @($origins); Printers = @($selectedForInstall) })
     } catch {
+        $save.Enabled = $true
         $status.Text = 'No se pudo completar la configuración.'
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Error de configuración', 'OK', 'Error') | Out-Null
-    } finally { $save.Enabled = $true }
+    }
 })
 
 Refresh-PrinterList

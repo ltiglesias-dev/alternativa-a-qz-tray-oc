@@ -4,11 +4,11 @@ Agente local para imprimir tickets ESC/POS de 58 mm desde cualquier web en Windo
 
 El instalador conserva el nombre interno `Agendarte Printer Agent` por compatibilidad con la instalación existente.
 
-Este proyecto también puede conectarse a cualquier web autorizada. La guía completa está en [INSTRUCTIVO.md](INSTRUCTIVO.md) y el ejemplo de integración en [EJEMPLO-INTEGRACION.js](EJEMPLO-INTEGRACION.js).
+Este proyecto también puede conectarse a cualquier web autorizada. La guía completa está en [instructivo/INSTRUCTIVO.md](instructivo/INSTRUCTIVO.md) y el ejemplo de integración en [integracion/EJEMPLO-INTEGRACION.js](integracion/EJEMPLO-INTEGRACION.js).
 
-También podés abrir la [demo visual de configuración](demo-configuracion.html) para ver la pantalla, el flujo y el JSON intercambiado.
+También podés abrir la [demo visual de configuración](demo/demo-configuracion.html) para ver la pantalla, el flujo y el JSON intercambiado.
 
-Para una integración rápida, incluí [agendarte-printer-client.js](agendarte-printer-client.js) en la web. Ese cliente guarda el token y las impresoras por perfil en el navegador y expone `connect()`, `discover()`, `print()` y `test()`. Hay una página funcional completa en [EJEMPLO-PAGINA-INTEGRADA.html](EJEMPLO-PAGINA-INTEGRADA.html).
+Para una integración rápida, incluí [agendarte-printer-client.js](integracion/agendarte-printer-client.js) en la web. Ese cliente guarda el token y las impresoras por perfil en el navegador y expone `connect()`, `discover()`, `print()` y `test()`. Hay una página funcional completa en [demo/EJEMPLO-PAGINA-INTEGRADA.html](demo/EJEMPLO-PAGINA-INTEGRADA.html).
 
 ```html
 <script src="https://cdn.jsdelivr.net/gh/viernes69/alternativa-a-qz-tray-oc@main/agendarte-printer-client.js"></script>
@@ -32,7 +32,7 @@ El archivo es público, pero cada instalación conserva su token local. No publi
 ## Instalación
 
 1. Verificá que Node.js esté instalado.
-2. Ejecutá `instalar-agente.bat`.
+2. Ejecutá `integracion\instalar-agente.bat`.
 3. En la ventana gráfica, ingresá la web autorizada.
 4. Marcá las impresoras que querés usar.
 5. Presioná **Guardar y activar agente**.
@@ -43,15 +43,15 @@ El instalador copia el agente a `%LOCALAPPDATA%\AgendartePrinterAgent`, crea la 
 
 También crea `%LOCALAPPDATA%\AgendartePrinterAgent\token.txt` con el token vigente y la fecha/hora de generación. Si se vuelve a ejecutar el instalador, ese archivo se actualiza y el token anterior deja de ser válido.
 
-Para abrirlo rápidamente, ejecutá `ver-token.bat`.
+Para abrirlo rápidamente, ejecutá `iniciar-agente\ver-token.bat`.
 
 ## Ejecución en segundo plano
 
 Después de guardar la configuración, Node queda ejecutándose como una tarea oculta de Windows. No hay que dejar abierta una ventana de CMD: si se cierra la consola que se usaba antes, el proceso terminaba; con esta versión, el agente queda separado de la consola y se inicia automáticamente al iniciar sesión.
 
-Si alguna vez necesitás iniciarlo manualmente, ejecutá `iniciar-agente.bat` o `iniciar-agente.vbs`. Ambos inician la tarea existente sin mostrar la consola; el `.vbs` tampoco deja visible una ventana fugaz del CMD.
+Si alguna vez necesitás iniciarlo manualmente, ejecutá `iniciar-agente\iniciar-agente.bat` o `iniciar-agente\iniciar-agente.vbs`. Ambos inician la tarea existente sin mostrar la consola; el `.vbs` tampoco deja visible una ventana fugaz del CMD.
 
-Para cambiar la web, el token o las impresoras, ejecutá nuevamente `instalar-agente.bat` y guardá la nueva configuración.
+Para cambiar la web, el token o las impresoras, ejecutá nuevamente `integracion\instalar-agente.bat` y guardá la nueva configuración.
 
 ## API local
 

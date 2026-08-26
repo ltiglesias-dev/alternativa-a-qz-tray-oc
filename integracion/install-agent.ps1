@@ -128,7 +128,7 @@ $healthHeaders = @{ Authorization = 'Bearer ' + $token }
 try {
     Invoke-WebRequest -Uri ('http://127.0.0.1:{0}/health' -f $config.port) -Headers $healthHeaders -TimeoutSec 5 | Out-Null
 } catch {
-    throw 'La configuración se guardó, pero el agente no pudo iniciarse. Ejecutá iniciar-agente.bat para ver el error.'
+    throw 'La configuración se guardó, pero el agente no pudo iniciarse. Ejecutá iniciar-agente\iniciar-agente.bat para ver el error.'
 }
 
 Write-Host ''

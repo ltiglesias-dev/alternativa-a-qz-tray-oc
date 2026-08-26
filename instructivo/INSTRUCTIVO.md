@@ -2,7 +2,7 @@
 
 Este proyecto reemplaza QZ Tray para imprimir tickets ESC/POS directamente desde una web en Windows, sin abrir el diálogo de impresión del navegador.
 
-Para ver cómo se vería la pantalla de configuración y cómo se arma la solicitud, abrí [demo-configuracion.html](demo-configuracion.html). Es una demostración visual: no conecta ni imprime.
+Para ver cómo se vería la pantalla de configuración y cómo se arma la solicitud, abrí [demo-configuracion.html](../demo/demo-configuracion.html). Es una demostración visual: no conecta ni imprime.
 
 La arquitectura es:
 
@@ -31,7 +31,7 @@ El agente está preparado para tickets de 58 mm con 32 columnas seguras. Para ot
 ## 2. Instalar el agente
 
 1. Descargá o cloná este repositorio.
-2. Ejecutá `instalar-agente.bat`.
+2. Ejecutá `integracion\instalar-agente.bat`.
 3. Se abrirá el configurador gráfico. Ingresá el origen de la web. No ingreses una ruta completa: se usa solamente el origen, por ejemplo `https://miweb.com`.
 4. Marcá las impresoras que querés usar en la lista detectada por Windows.
 5. Presioná **Guardar y activar agente**.
@@ -53,11 +53,11 @@ El instalador:
 
 El agente queda registrado como una tarea oculta de Windows. No es necesario dejar abierto un CMD; `iniciar-agente.bat` o `iniciar-agente.vbs` solamente vuelven a iniciar esa tarea si hace falta. El `.vbs` es la opción totalmente silenciosa si se lo ejecuta desde el Explorador.
 
-Para consultar el token, ejecutá `ver-token.bat`. No publiques ni compartas ese archivo.
+Para consultar el token, ejecutá `iniciar-agente\ver-token.bat`. No publiques ni compartas ese archivo.
 
 ## 3. Reconfigurar o cambiar el token
 
-Volvé a ejecutar `instalar-agente.bat` y completá el asistente nuevamente.
+Volvé a ejecutar `integracion\instalar-agente.bat` y completá el asistente nuevamente.
 
 El configurador detiene la instancia anterior, genera un token nuevo, reemplaza `config.json`, actualiza `token.txt` y vuelve a iniciar el agente. El token anterior deja de funcionar.
 
@@ -137,7 +137,7 @@ Métodos disponibles:
 - `setConfig()` guarda token, URL, perfil e impresoras en `localStorage` de ese equipo.
 - `clearConfig()` elimina la configuración del perfil actual.
 
-La página funcional [EJEMPLO-PAGINA-INTEGRADA.html](EJEMPLO-PAGINA-INTEGRADA.html) muestra token, búsqueda de impresoras, selección múltiple, prueba e impresión de un pedido. Para una web real solo hay que reemplazar el objeto `pedido` por los datos propios del sistema.
+La página funcional [EJEMPLO-PAGINA-INTEGRADA.html](../demo/EJEMPLO-PAGINA-INTEGRADA.html) muestra token, búsqueda de impresoras, selección múltiple, prueba e impresión de un pedido. Para una web real solo hay que reemplazar el objeto `pedido` por los datos propios del sistema.
 
 ## 5. Consultar impresoras
 
@@ -252,7 +252,7 @@ await agentRequest('/print', {
 ### La web muestra `Failed to fetch`
 
 1. Confirmá que el agente esté iniciado.
-2. Ejecutá `iniciar-agente.bat` para probarlo manualmente.
+2. Ejecutá `iniciar-agente\iniciar-agente.bat` para probarlo manualmente.
 3. Abrí `http://127.0.0.1:8765/health`.
 4. Verificá que la URL de la web haya sido incluida durante la instalación.
 5. Confirmá que el token corresponda a la instalación actual.
@@ -284,15 +284,15 @@ Eso significa que la web está usando un respaldo de impresión del navegador o 
 
 ## 12. Crear una nueva versión
 
-1. Modificá `server.js`, `print-raw.ps1` o los scripts del instalador.
+1. Modificá los archivos correspondientes dentro de `integracion`.
 2. Ejecutá las validaciones:
 
    ```powershell
-   node --check .\server.js
+   node --check .\integracion\server.js
    ```
 
 3. Probá `/health` y `/printers`.
-4. Si cambiás la configuración de Windows o el código del agente instalado, volvé a ejecutar `instalar-agente.bat`.
+4. Si cambiás la configuración de Windows o el código del agente instalado, volvé a ejecutar `integracion\instalar-agente.bat`.
 5. Publicá los cambios en el repositorio:
 
    ```powershell
@@ -303,7 +303,7 @@ Eso significa que la web está usando un respaldo de impresión del navegador o 
 
 ## 13. Ejemplo visual completo
 
-La demo incluida en `demo-configuracion.html` representa la pantalla que puede agregar cualquier web:
+La demo incluida en `demo/demo-configuracion.html` representa la pantalla que puede agregar cualquier web:
 
 1. Campo para pegar el token local.
 2. Estado de conexión con el agente.
@@ -312,4 +312,4 @@ La demo incluida en `demo-configuracion.html` representa la pantalla que puede a
 5. Botón de prueba.
 6. Vista del JSON que se enviaría a `/print`.
 
-La demo no contiene un token real y no debe usarse como sustituto de la integración de producción. Para producción, reemplazá la simulación por `fetch()` usando el ejemplo de `EJEMPLO-INTEGRACION.js`.
+La demo no contiene un token real y no debe usarse como sustituto de la integración de producción. Para producción, reemplazá la simulación por `fetch()` usando el ejemplo de `integracion/EJEMPLO-INTEGRACION.js`.

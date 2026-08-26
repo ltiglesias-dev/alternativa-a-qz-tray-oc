@@ -5,7 +5,7 @@ $serverPath = Join-Path $installDir 'server.js'
 $configPath = Join-Path $installDir 'config.json'
 
 if (-not (Test-Path $serverPath) -or -not (Test-Path $configPath)) {
-    throw 'Primero configurá el agente desde instalar-agente.bat.'
+    throw 'Primero configurá el agente desde integracion\instalar-agente.bat.'
 }
 
 $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue

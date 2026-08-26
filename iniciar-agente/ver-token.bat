@@ -8,7 +8,7 @@ if not exist "%TOKEN_FILE%" (
         start "" notepad.exe "%CONFIG_FILE%"
         exit /b 0
     )
-    echo Todavia no existe una instalacion del agente. Ejecuta instalar-agente.bat.
+    echo Todavia no existe una instalacion del agente. Ejecuta ..\integracion\instalar-agente.bat.
     pause
     exit /b 1
 )
