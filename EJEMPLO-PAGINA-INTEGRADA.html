@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ejemplo de integración - Agendarte Printer Agent</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 16px; font: 16px/1.45 Segoe UI, Arial, sans-serif; color: #172033; }
+    label { display: block; margin: 14px 0 5px; font-weight: 700; }
+    input, select, button { width: 100%; padding: 10px; box-sizing: border-box; font: inherit; }
+    select { min-height: 100px; }
+    button { margin-top: 12px; cursor: pointer; font-weight: 700; }
+    #status { margin: 18px 0; padding: 12px; background: #f1f5f9; border-radius: 8px; }
+    pre { padding: 12px; overflow: auto; background: #111827; color: #e5edf8; }
+  </style>
+</head>
+<body>
+  <h1>Impresión silenciosa</h1>
+  <p>Este ejemplo usa un único JavaScript. El token queda guardado en este navegador y no se envía a Internet.</p>
+
+  <label for="token">Token del agente</label>
+  <input id="token" type="password" placeholder="Pegá el token de token.txt">
+
+  <button id="connect" type="button">Guardar y buscar impresoras</button>
+
+  <label for="printers">Impresoras</label>
+  <select id="printers" multiple></select>
+  <small>Podés elegir varias. Si no elegís ninguna, se usan las configuradas en el agente.</small>
+
+  <button id="test" type="button">Imprimir ticket de prueba</button>
+  <button id="print" type="button">Imprimir pedido de ejemplo</button>
+
+  <div id="status">Agente no consultado.</div>
+  <pre id="output">Esperando...</pre>
+
+  <script src="./agendarte-printer-client.js"></script>
+  <script>
+    const printer = AgendartePrinter.create({ profile: 'mi-comercio' });
+    const tokenInput = document.getElementById('token');
+    const printerSelect = document.getElementById('printers');
+    const status = document.getElementById('status');
+    const output = document.getElementById('output');
+
+    tokenInput.value = printer.getConfig().token;
+
+    function selectedPrinters() {
+      return Array.from(printerSelect.selectedOptions).map((option) => option.value);
+    }
+
+    printerSelect.addEventListener('change', () => {
+      printer.setConfig({ printerNames: selectedPrinters() });
+    });
+
+    function show(value) {
+      output.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    }
+
+    async function connectAndDiscover() {
+      printer.setConfig({ token: tokenInput.value });
+      await printer.connect();
+      const result = await printer.discover();
+      printerSelect.innerHTML = '';
+      result.printers.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = typeof item === 'string' ? item : item.name;
+        option.textContent = option.value;
+        option.selected = result.configured.includes(option.value);
+        printerSelect.appendChild(option);
+      });
+      printer.setConfig({ printerNames: selectedPrinters() });
+      status.textContent = 'Agente conectado. Impresoras encontradas: ' + result.printers.length;
+      show(result);
+    }
+
+    document.getElementById('connect').addEventListener('click', async () => {
+      try { await connectAndDiscover(); }
+      catch (error) { status.textContent = error.message; }
+    });
+
+    document.getElementById('test').addEventListener('click', async () => {
+      try {
+        const result = await printer.test(selectedPrinters());
+        status.textContent = 'Ticket de prueba enviado.';
+        show(result);
+      } catch (error) { status.textContent = error.message; }
+    });
+
+    document.getElementById('print').addEventListener('click', async () => {
+      try {
+        const result = await printer.print({
+          id: '123',
+          business: 'Mi comercio',
+          client: 'Cliente de ejemplo',
+          phone: '+598 0000 0000',
+          payment: 'Pago en el local',
+          date: new Date().toLocaleString('es-UY'),
+          address: 'Retiro en el comercio',
+          rows: [{ name: 'Producto de ejemplo', quantity: 1, price: 290 }],
+          total: 290,
+        }, { printerNames: selectedPrinters(), jobId: 'pedido-123-' + Date.now() });
+        status.textContent = 'Pedido enviado a imprimir.';
+        show(result);
+      } catch (error) { status.textContent = error.message; }
+    });
+  </script>
+</body>
+</html>

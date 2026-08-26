@@ -194,7 +194,49 @@ function normalizeText(value) {
     .replace(/€/g, 'EUR')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\r?\n/g, ' ');
+    .replace(/\r?\n/g, ' ')
+    // Las impresoras ESC/POS sencillas no interpretan UTF-8/emoji de forma
+    // uniforme y pueden imprimir letras sueltas en lugar del símbolo.
+    .replace(/[^\x20-\x7E]/g, ' ');
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function cleanDeliveryText(value, data = {}) {
+  let text = normalizeText(value).trim();
+  if (!text) return '';
+
+  text = text
+    .replace(/pedido\s+(?:whatsapp|mercado\s+pago)\s*(?:\([^)]*\))?/gi, ' ')
+    .replace(/\btienda\s+s\b/gi, ' ');
+
+  [data.client, data.phone || data.telefono].forEach((duplicate) => {
+    const normalizedDuplicate = normalizeText(duplicate).trim();
+    if (normalizedDuplicate) {
+      text = text.replace(new RegExp(escapeRegExp(normalizedDuplicate), 'gi'), ' ');
+    }
+  });
+
+  text = text
+    .replace(/\s*[|;,]+\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s:.-]+|[\s:.-]+$/g, '')
+    .trim();
+
+  if (/\bretiro\s+en\s+(?:el\s+)?(?:comercio|local)\b/i.test(text)
+    || /\bpasa\s+a\s+retirar\b/i.test(text)) {
+    return 'Retiro en el comercio';
+  }
+
+  const envioMatch = text.match(/envio\s+a\s+domicilio\s*:?\s*(.*)$/i);
+  if (envioMatch) {
+    const address = String(envioMatch[1] || '').trim();
+    return address ? 'Envio a domicilio: ' + address : 'Envio a domicilio';
+  }
+
+  return text;
 }
 
 function wrapText(value, width = COLUMNS_58) {
@@ -293,7 +335,7 @@ function buildOrderTicket(data = {}) {
     ['Cedula', data.cedula],
     ['Forma de pago', data.payment || data.metodo_pago],
     ['Fecha', data.date || data.fecha],
-    ['Entrega', data.address || data.direccion],
+    ['Entrega', cleanDeliveryText(data.address || data.direccion, data)],
   ].filter(([, value]) => value && String(value).trim())
     .forEach(([label, value]) => addLine(parts, label + ': ' + value));
   addLine(parts, '-'.repeat(COLUMNS_58));

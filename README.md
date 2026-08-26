@@ -8,6 +8,27 @@ Este proyecto también puede conectarse a cualquier web autorizada. La guía com
 
 También podés abrir la [demo visual de configuración](demo-configuracion.html) para ver la pantalla, el flujo y el JSON intercambiado.
 
+Para una integración rápida, incluí [agendarte-printer-client.js](agendarte-printer-client.js) en la web. Ese cliente guarda el token y las impresoras por perfil en el navegador y expone `connect()`, `discover()`, `print()` y `test()`. Hay una página funcional completa en [EJEMPLO-PAGINA-INTEGRADA.html](EJEMPLO-PAGINA-INTEGRADA.html).
+
+```html
+<script src="https://raw.githubusercontent.com/viernes69/alternativa-a-qz-tray-oc/main/agendarte-printer-client.js"></script>
+<script>
+  (async () => {
+    const impresora = AgendartePrinter.create({ profile: 'mi-comercio' });
+    impresora.setConfig({ token: document.querySelector('#token').value });
+    await impresora.print({
+      id: pedido.id,
+      business: 'Mi comercio',
+      client: pedido.cliente,
+      rows: pedido.productos,
+      total: pedido.total,
+    });
+  })();
+</script>
+```
+
+El archivo es público, pero cada instalación conserva su token local. No publiques un token real dentro del código de una web pública.
+
 ## Instalación
 
 1. Verificá que Node.js esté instalado.

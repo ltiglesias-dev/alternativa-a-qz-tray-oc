@@ -88,6 +88,56 @@ async function agentRequest(path, options = {}) {
 
 El origen exacto de la web debe haber sido cargado durante la instalación. El navegador realiza una solicitud CORS `OPTIONS` antes de enviar solicitudes con `Authorization`; el agente ya contempla ese preflight.
 
+### Integración simplificada con un único JavaScript
+
+Para no repetir el código de `fetch()` en cada proyecto, incluí este archivo público:
+
+```html
+<script src="https://raw.githubusercontent.com/viernes69/alternativa-a-qz-tray-oc/main/agendarte-printer-client.js"></script>
+```
+
+Después creá un cliente por perfil de uso. El perfil permite guardar configuraciones distintas en el mismo equipo, por ejemplo `caja`, `cocina` o `mostrador`:
+
+```js
+const impresora = AgendartePrinter.create({ profile: 'caja' });
+
+// Se ejecuta una sola vez desde el panel de configuración de la web.
+impresora.setConfig({
+  token: document.querySelector('#token-local').value,
+  printerNames: ['POS-58', 'Impresora portatil'],
+});
+
+const estado = await impresora.connect();
+const instaladas = await impresora.discover();
+
+await impresora.print({
+  id: pedido.id,
+  business: 'Mi comercio',
+  client: pedido.cliente,
+  phone: pedido.telefono,
+  payment: pedido.formaPago,
+  date: pedido.fecha,
+  address: pedido.direccion,
+  rows: pedido.productos.map((producto) => ({
+    name: producto.nombre,
+    quantity: producto.cantidad,
+    price: producto.precio,
+  })),
+  total: pedido.total,
+});
+```
+
+Métodos disponibles:
+
+- `connect()` verifica que el agente esté activo.
+- `discover()` devuelve las impresoras instaladas y las configuradas.
+- `print(ticket, opciones)` imprime en las impresoras guardadas o en las indicadas en `opciones.printerNames`.
+- `test()` envía un ticket de prueba.
+- `setConfig()` guarda token, URL, perfil e impresoras en `localStorage` de ese equipo.
+- `clearConfig()` elimina la configuración del perfil actual.
+
+La página funcional [EJEMPLO-PAGINA-INTEGRADA.html](EJEMPLO-PAGINA-INTEGRADA.html) muestra token, búsqueda de impresoras, selección múltiple, prueba e impresión de un pedido. Para una web real solo hay que reemplazar el objeto `pedido` por los datos propios del sistema.
+
 ## 5. Consultar impresoras
 
 ```js
