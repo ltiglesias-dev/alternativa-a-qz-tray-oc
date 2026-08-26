@@ -47,6 +47,47 @@ function Stop-Agent {
     try { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue } catch {}
 }
 
+function Wait-ForAgentHealth([string]$token) {
+    $healthUri = 'http://127.0.0.1:8765/health'
+    $headers = @{ Authorization = 'Bearer ' + $token }
+    $lastError = ''
+
+    # El arranque pasa por el Programador de tareas, PowerShell y Node.js.
+    # En algunos equipos tarda más de 800 ms, por eso esperamos consultando
+    # varias veces antes de informar que la configuración falló.
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+        try {
+            $response = Invoke-WebRequest -Uri $healthUri -Headers $headers -TimeoutSec 2
+            if ($response.StatusCode -eq 200) { return }
+        } catch {
+            $lastError = [string]$_.Exception.Message
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    if (-not $lastError) { $lastError = 'No respondió el endpoint local de salud.' }
+    throw ('La configuración se guardó, pero el agente no respondió en http://127.0.0.1:8765/health. Detalle: ' + $lastError)
+}
+
+function Get-ErrorDetails($errorRecord) {
+    $message = ''
+    if ($errorRecord -and $errorRecord.Exception) { $message = [string]$errorRecord.Exception.Message }
+    if ([string]::IsNullOrWhiteSpace($message) -and $errorRecord) { $message = ([string]($errorRecord | Out-String)).Trim() }
+    if ([string]::IsNullOrWhiteSpace($message)) {
+        $message = 'Error sin detalle. Revisá que Node.js esté instalado, que el puerto 8765 esté libre y consultá configurator-error.log.'
+    }
+    return $message
+}
+
+function Save-ConfiguratorError([string]$details) {
+    try {
+        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+        $logPath = Join-Path $installDir 'configurator-error.log'
+        $entry = ('[{0}] {1}{2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $details, [Environment]::NewLine)
+        [System.IO.File]::AppendAllText($logPath, $entry, [System.Text.UTF8Encoding]::new($false))
+    } catch {}
+}
+
 function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     $token = New-AgentToken
     New-Item -ItemType Directory -Path $installDir -Force | Out-Null
@@ -75,12 +116,7 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
     Start-ScheduledTask -TaskName $taskName
-    Start-Sleep -Milliseconds 800
-    try {
-        Invoke-WebRequest -Uri 'http://127.0.0.1:8765/health' -Headers @{ Authorization = 'Bearer ' + $token } -TimeoutSec 5 | Out-Null
-    } catch {
-        throw 'La configuración se guardó, pero el agente no pudo iniciarse. Revisá que Node.js esté instalado y volvé a intentar.'
-    }
+    Wait-ForAgentHealth $token
     return $token
 }
 
@@ -180,11 +216,13 @@ $worker.add_DoWork({
             Error = ''
         }
     } catch {
+        $details = Get-ErrorDetails $_
+        Save-ConfiguratorError $details
         $eventArgs.Result = [pscustomobject]@{
             Success = $false
             Token = ''
             Printers = @()
-            Error = $_.Exception.Message
+            Error = $details
         }
     }
 })
@@ -193,8 +231,10 @@ $worker.add_RunWorkerCompleted({
     param($sender, $eventArgs)
     $save.Enabled = $true
     if ($eventArgs.Error) {
+        $details = Get-ErrorDetails $eventArgs.Error
+        Save-ConfiguratorError $details
         $status.Text = 'No se pudo completar la configuración.'
-        Show-Notice $eventArgs.Error.Exception.Message 'Error de configuración'
+        Show-Notice $details 'Error de configuración'
         return
     }
     $result = $eventArgs.Result
@@ -230,9 +270,11 @@ $save.Add_Click({
         $selectedForInstall = @($selected)
         $worker.RunWorkerAsync([pscustomobject]@{ Origins = @($origins); Printers = @($selectedForInstall) })
     } catch {
+        $details = Get-ErrorDetails $_
+        Save-ConfiguratorError $details
         $save.Enabled = $true
         $status.Text = 'No se pudo completar la configuración.'
-        Show-Notice $_.Exception.Message 'Error de configuración'
+        Show-Notice $details 'Error de configuración'
     }
 })
 

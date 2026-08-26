@@ -123,12 +123,25 @@ $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interac
 $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
 Start-ScheduledTask -TaskName $taskName
-Start-Sleep -Milliseconds 800
 $healthHeaders = @{ Authorization = 'Bearer ' + $token }
-try {
-    Invoke-WebRequest -Uri ('http://127.0.0.1:{0}/health' -f $config.port) -Headers $healthHeaders -TimeoutSec 5 | Out-Null
-} catch {
-    throw 'La configuración se guardó, pero el agente no pudo iniciarse. Ejecutá iniciar-agente\iniciar-agente.bat para ver el error.'
+$healthUri = 'http://127.0.0.1:{0}/health' -f $config.port
+$lastHealthError = ''
+$agentReady = $false
+for ($attempt = 1; $attempt -le 20; $attempt++) {
+    try {
+        $healthResponse = Invoke-WebRequest -Uri $healthUri -Headers $healthHeaders -TimeoutSec 2
+        if ($healthResponse.StatusCode -eq 200) {
+            $agentReady = $true
+            break
+        }
+    } catch {
+        $lastHealthError = [string]$_.Exception.Message
+    }
+    Start-Sleep -Milliseconds 500
+}
+if (-not $agentReady) {
+    if (-not $lastHealthError) { $lastHealthError = 'No respondió el endpoint local de salud.' }
+    throw ('La configuración se guardó, pero el agente no pudo iniciarse. Detalle: ' + $lastHealthError + '. Ejecutá iniciar-agente\iniciar-agente.bat para ver el error.')
 }
 
 Write-Host ''
