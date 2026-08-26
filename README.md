@@ -33,15 +33,25 @@ El archivo es público, pero cada instalación conserva su token local. No publi
 
 1. Verificá que Node.js esté instalado.
 2. Ejecutá `instalar-agente.bat`.
-3. Ingresá la web autorizada.
-4. Indicá cuántas impresoras usarás.
-5. Escribí el nombre exacto de cada impresora de Windows.
+3. En la ventana gráfica, ingresá la web autorizada.
+4. Marcá las impresoras que querés usar.
+5. Presioná **Guardar y activar agente**.
+
+La ventana muestra las impresoras detectadas, genera el token y permite copiarlo para pegarlo en la configuración de la web. Si volvés a presionar el botón, se genera una configuración nueva y el token anterior deja de funcionar.
 
 El instalador copia el agente a `%LOCALAPPDATA%\AgendartePrinterAgent`, crea la configuración y registra una tarea oculta para iniciar el servicio al iniciar sesión en Windows.
 
 También crea `%LOCALAPPDATA%\AgendartePrinterAgent\token.txt` con el token vigente y la fecha/hora de generación. Si se vuelve a ejecutar el instalador, ese archivo se actualiza y el token anterior deja de ser válido.
 
 Para abrirlo rápidamente, ejecutá `ver-token.bat`.
+
+## Ejecución en segundo plano
+
+Después de guardar la configuración, Node queda ejecutándose como una tarea oculta de Windows. No hay que dejar abierta una ventana de CMD: si se cierra la consola que se usaba antes, el proceso terminaba; con esta versión, el agente queda separado de la consola y se inicia automáticamente al iniciar sesión.
+
+Si alguna vez necesitás iniciarlo manualmente, ejecutá `iniciar-agente.bat`. El comando inicia la tarea existente sin mostrar la consola.
+
+Para cambiar la web, el token o las impresoras, ejecutá nuevamente `instalar-agente.bat` y guardá la nueva configuración.
 
 ## API local
 

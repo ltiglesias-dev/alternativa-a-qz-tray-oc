@@ -32,16 +32,15 @@ El agente está preparado para tickets de 58 mm con 32 columnas seguras. Para ot
 
 1. Descargá o cloná este repositorio.
 2. Ejecutá `instalar-agente.bat`.
-3. Ingresá el origen de la web. No ingreses una ruta completa: se usa solamente el origen, por ejemplo `https://miweb.com`.
-4. Si hay más de un origen, separalos por coma:
+3. Se abrirá el configurador gráfico. Ingresá el origen de la web. No ingreses una ruta completa: se usa solamente el origen, por ejemplo `https://miweb.com`.
+4. Marcá las impresoras que querés usar en la lista detectada por Windows.
+5. Presioná **Guardar y activar agente**.
+
+Si hay más de un origen, separalos por coma:
 
    ```text
    https://miweb.com,http://localhost:3000,http://127.0.0.1:5173
    ```
-
-5. Indicá cuántas impresoras vas a utilizar.
-6. Escribí el nombre exacto de cada impresora de Windows.
-7. Definí un rol opcional, como `caja`, `cocina` o `mostrador`.
 
 El instalador:
 
@@ -52,13 +51,15 @@ El instalador:
 - Inicia el proceso local.
 - Crea `token.txt` con el token vigente y la fecha/hora.
 
+El agente queda registrado como una tarea oculta de Windows. No es necesario dejar abierto un CMD; `iniciar-agente.bat` solamente vuelve a iniciar esa tarea si hace falta.
+
 Para consultar el token, ejecutá `ver-token.bat`. No publiques ni compartas ese archivo.
 
 ## 3. Reconfigurar o cambiar el token
 
 Volvé a ejecutar `instalar-agente.bat` y completá el asistente nuevamente.
 
-El instalador detiene la instancia anterior, genera un token nuevo, reemplaza `config.json`, actualiza `token.txt` y vuelve a iniciar el agente. El token anterior deja de funcionar.
+El configurador detiene la instancia anterior, genera un token nuevo, reemplaza `config.json`, actualiza `token.txt` y vuelve a iniciar el agente. El token anterior deja de funcionar.
 
 ## 4. Conectar cualquier web
 

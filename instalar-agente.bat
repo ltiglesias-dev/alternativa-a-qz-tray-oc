@@ -1,8 +1,4 @@
 @echo off
 setlocal
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-agent.ps1"
-if errorlevel 1 (
-    echo.
-    echo La instalacion no pudo completarse.
-    pause
-)
+start "" powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0configurador-agente.ps1"
+exit /b 0

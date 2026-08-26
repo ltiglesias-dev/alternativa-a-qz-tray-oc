@@ -1,9 +1,5 @@
 @echo off
 setlocal
-set "AGENT_DIR=%LOCALAPPDATA%\AgendartePrinterAgent"
-if not exist "%AGENT_DIR%\server.js" (
-    echo Primero ejecuta instalar-agente.bat
-    pause
-    exit /b 1
-)
-node "%AGENT_DIR%\server.js" --config "%AGENT_DIR%\config.json"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0iniciar-agente-oculto.ps1"
+if errorlevel 1 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('No se pudo iniciar el agente. Ejecutá instalar-agente.bat para configurarlo.', 'Agendarte Printer Agent')"
+exit /b 0
