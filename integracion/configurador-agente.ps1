@@ -48,28 +48,6 @@ function Stop-Agent {
     try { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue } catch {}
 }
 
-function Wait-ForAgentHealth([string]$token) {
-    $healthUri = 'http://127.0.0.1:8765/health'
-    $headers = @{ Authorization = 'Bearer ' + $token }
-    $lastError = ''
-
-    # El arranque pasa por el Programador de tareas, PowerShell y Node.js.
-    # En algunos equipos tarda más de 800 ms, por eso esperamos consultando
-    # varias veces antes de informar que la configuración falló.
-    for ($attempt = 1; $attempt -le 20; $attempt++) {
-        try {
-            $response = Invoke-WebRequest -Uri $healthUri -Headers $headers -TimeoutSec 2
-            if ($response.StatusCode -eq 200) { return }
-        } catch {
-            $lastError = [string]$_.Exception.Message
-        }
-        Start-Sleep -Milliseconds 500
-    }
-
-    if (-not $lastError) { $lastError = 'No respondió el endpoint local de salud.' }
-    throw ('La configuración se guardó, pero el agente no respondió en http://127.0.0.1:8765/health. Detalle: ' + $lastError)
-}
-
 function Get-ErrorDetails($errorRecord) {
     $message = ''
     if ($errorRecord -and $errorRecord.Exception) { $message = [string]$errorRecord.Exception.Message }
@@ -145,7 +123,11 @@ if ($Worker) {
             Error = $details
         }
     }
-    [System.IO.File]::WriteAllText($ResultPath, ($result | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
+    # Escribimos primero un archivo temporal para que la ventana nunca intente
+    # leer el JSON mientras todavía se está escribiendo.
+    $partialResultPath = $ResultPath + '.tmp'
+    [System.IO.File]::WriteAllText($partialResultPath, ($result | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $partialResultPath -Destination $ResultPath -Force
     exit 0
 }
 
@@ -238,9 +220,6 @@ $folder.Size = New-Object System.Drawing.Size(190, 38)
 $form.Controls.Add($folder)
 
 $installProcess = $null
-$script:awaitingHealth = $false
-$script:agentToken = ''
-$script:healthAttempts = 0
 $installTimer = New-Object System.Windows.Forms.Timer
 $installTimer.Interval = 250
 
@@ -255,32 +234,11 @@ function Complete-Install([object]$result) {
     }
     $tokenBox.Text = $result.Token
     $copy.Enabled = $true
-    $script:agentToken = [string]$result.Token
-    $script:healthAttempts = 0
-    $script:awaitingHealth = $true
-    $status.Text = ('Configuración guardada. Comprobando el agente... Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
+    $installTimer.Stop()
+    $status.Text = ('Agente activo en segundo plano. Token listo para copiar. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
 }
 
 $installTimer.Add_Tick({
-    if ($script:awaitingHealth) {
-        $script:healthAttempts++
-        try {
-            $health = Invoke-WebRequest -Uri 'http://127.0.0.1:8765/health' -Headers @{ Authorization = 'Bearer ' + $script:agentToken } -TimeoutSec 1
-            if ($health.StatusCode -eq 200) {
-                $script:awaitingHealth = $false
-                $installTimer.Stop()
-                $status.Text = 'Agente activo en segundo plano. Se iniciará solo con Windows.'
-                Show-Notice 'Configuración completada. El agente quedó activo y se iniciará solo con Windows.'
-            }
-        } catch {}
-        if ($script:healthAttempts -ge 40 -and $script:awaitingHealth) {
-            $script:awaitingHealth = $false
-            $installTimer.Stop()
-            $status.Text = 'Configuración guardada. No se pudo verificar el agente; el token quedó disponible para probarlo.'
-            Show-Notice 'La configuración se guardó y el token ya está disponible, pero no se pudo confirmar la respuesta del agente. Consultá configurator-error.log si no imprime.' 'Agendarte Printer Agent'
-        }
-        return
-    }
     if (-not $installProcess) { return }
     if (Test-Path -LiteralPath $script:resultPath) {
         try {
