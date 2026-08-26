@@ -117,7 +117,9 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Agente local de impresión ESC/POS de Agendarte' -Force | Out-Null
     Start-ScheduledTask -TaskName $taskName
-    Wait-ForAgentHealth $token
+    # La interfaz recibe el token apenas termina la instalación. La salud del
+    # agente se comprueba desde el temporizador de la ventana para que una
+    # demora de localhost nunca deje el configurador bloqueado.
     return $token
 }
 
@@ -236,12 +238,16 @@ $folder.Size = New-Object System.Drawing.Size(190, 38)
 $form.Controls.Add($folder)
 
 $installProcess = $null
+$script:awaitingHealth = $false
+$script:agentToken = ''
+$script:healthAttempts = 0
 $installTimer = New-Object System.Windows.Forms.Timer
 $installTimer.Interval = 250
 
 function Complete-Install([object]$result) {
     $save.Enabled = $true
     if (-not $result.Success) {
+        $installTimer.Stop()
         $status.Text = 'No se pudo completar la configuración.'
         $details = Get-ErrorDetails $result.Error
         Show-Notice $details 'Error de configuración'
@@ -249,17 +255,37 @@ function Complete-Install([object]$result) {
     }
     $tokenBox.Text = $result.Token
     $copy.Enabled = $true
-    $status.Text = ('Agente activo en segundo plano. Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
-    Show-Notice 'Configuración completada. El agente quedó activo y se iniciará solo con Windows.'
+    $script:agentToken = [string]$result.Token
+    $script:healthAttempts = 0
+    $script:awaitingHealth = $true
+    $status.Text = ('Configuración guardada. Comprobando el agente... Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
 }
 
 $installTimer.Add_Tick({
+    if ($script:awaitingHealth) {
+        $script:healthAttempts++
+        try {
+            $health = Invoke-WebRequest -Uri 'http://127.0.0.1:8765/health' -Headers @{ Authorization = 'Bearer ' + $script:agentToken } -TimeoutSec 1
+            if ($health.StatusCode -eq 200) {
+                $script:awaitingHealth = $false
+                $installTimer.Stop()
+                $status.Text = 'Agente activo en segundo plano. Se iniciará solo con Windows.'
+                Show-Notice 'Configuración completada. El agente quedó activo y se iniciará solo con Windows.'
+            }
+        } catch {}
+        if ($script:healthAttempts -ge 40 -and $script:awaitingHealth) {
+            $script:awaitingHealth = $false
+            $installTimer.Stop()
+            $status.Text = 'Configuración guardada. No se pudo verificar el agente; el token quedó disponible para probarlo.'
+            Show-Notice 'La configuración se guardó y el token ya está disponible, pero no se pudo confirmar la respuesta del agente. Consultá configurator-error.log si no imprime.' 'Agendarte Printer Agent'
+        }
+        return
+    }
     if (-not $installProcess) { return }
     if (Test-Path -LiteralPath $script:resultPath) {
         try {
             $resultJson = [System.IO.File]::ReadAllText($script:resultPath, [System.Text.UTF8Encoding]::new($false))
             $result = $resultJson | ConvertFrom-Json
-            $installTimer.Stop()
             Complete-Install $result
         } catch {
             $installTimer.Stop()
