@@ -33,8 +33,9 @@ El agente está preparado para tickets de 58 mm con 32 columnas seguras. Para ot
 1. Descargá o cloná este repositorio.
 2. Ejecutá `integracion\instalar-agente.bat`.
 3. Se abrirá el configurador gráfico. Ingresá el origen de la web. No ingreses una ruta completa: se usa solamente el origen, por ejemplo `https://miweb.com`.
-4. Marcá las impresoras que querés usar en la lista detectada por Windows.
-5. Presioná **Guardar y activar agente**.
+4. Confirmá el puerto local abierto en ese PC (por defecto `8765`, visible en la misma ventana).
+5. Marcá las impresoras que querés usar en la lista detectada por Windows.
+6. Presioná **Guardar y activar agente**.
 
 Si hay más de un origen, separalos por coma:
 
@@ -46,10 +47,10 @@ El instalador:
 
 - Copia el agente a `%LOCALAPPDATA%\AgendartePrinterAgent`.
 - Genera un token aleatorio.
-- Guarda la configuración en `config.json`.
+- Guarda la configuración en `config.json`, incluyendo el puerto local.
 - Registra el agente para iniciarlo al iniciar sesión en Windows.
 - Inicia el proceso local.
-- Crea `token.txt` con el token vigente y la fecha/hora.
+- Crea `token.txt` con el token vigente, el puerto, la URL local y la fecha/hora.
 - Registra en Microsoft Edge el origen autorizado para permitir el acceso al agente local sin repetir el aviso de permisos.
 
 El agente queda registrado como una tarea oculta de Windows. No es necesario dejar abierto un CMD; `iniciar-agente.bat` o `iniciar-agente.vbs` solamente vuelven a iniciar esa tarea si hace falta. El `.vbs` es la opción totalmente silenciosa si se lo ejecuta desde el Explorador.

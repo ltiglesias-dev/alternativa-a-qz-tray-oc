@@ -13,4 +13,4 @@ Para configurarlo o cambiar la web, el token o las impresoras, ejecutá:
 ..\integracion\instalar-agente.bat
 ```
 
-La ventana gráfica genera un token nuevo y reemplaza la configuración anterior. Nunca publiques `config.json` ni `token.txt`.
+La ventana gráfica muestra el puerto local abierto en ese PC, genera un token nuevo y reemplaza la configuración anterior. El puerto y la URL local también quedan en `token.txt`. Nunca publiques `config.json` ni `token.txt`.

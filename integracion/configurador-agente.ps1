@@ -10,6 +10,22 @@ $installDir = Join-Path ($env:LOCALAPPDATA) 'AgendartePrinterAgent'
 $configPath = Join-Path $installDir 'config.json'
 $tokenPath = Join-Path $installDir 'token.txt'
 $taskName = 'Agendarte Printer Agent'
+$agentPortDefault = 8765
+
+function Get-ConfiguredAgentPort {
+    if (Test-Path -LiteralPath $configPath) {
+        try {
+            $existing = Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop | ConvertFrom-Json
+            $configured = [int]$existing.port
+            if ($configured -gt 0) { return $configured }
+        } catch {}
+    }
+    return $agentPortDefault
+}
+
+function Format-AgentLocalUrl([int]$port) {
+    return ('http://127.0.0.1:{0}' -f $port)
+}
 
 function Normalize-Origin([string]$value) {
     $candidate = $value.Trim()
@@ -53,7 +69,7 @@ function Get-ErrorDetails($errorRecord) {
     if ($errorRecord -and $errorRecord.Exception) { $message = [string]$errorRecord.Exception.Message }
     if ([string]::IsNullOrWhiteSpace($message) -and $errorRecord) { $message = ([string]($errorRecord | Out-String)).Trim() }
     if ([string]::IsNullOrWhiteSpace($message)) {
-        $message = 'Error sin detalle. Revisá que Node.js esté instalado, que el puerto 8765 esté libre y consultá configurator-error.log.'
+        $message = ('Error sin detalle. Revisá que Node.js esté instalado, que el puerto {0} esté libre y consultá configurator-error.log.' -f $agentPortDefault)
     }
     return $message
 }
@@ -103,7 +119,8 @@ function Set-EdgeLoopbackPolicy([string[]]$origins) {
     }
 }
 
-function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
+function Install-Agent([string[]]$origins, [object[]]$selectedPrinters, [int]$port = 0) {
+    if ($port -le 0) { $port = Get-ConfiguredAgentPort }
     $token = New-AgentToken
     New-Item -ItemType Directory -Path $installDir -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $sourceDir 'server.js') -Destination (Join-Path $installDir 'server.js') -Force
@@ -116,9 +133,17 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     for ($i = 0; $i -lt $selectedPrinters.Count; $i++) {
         $printerConfigs += [ordered]@{ name = [string]$selectedPrinters[$i].Name; role = ('impresora-' + ($i + 1)); paperWidth = '58mm' }
     }
-    $config = [ordered]@{ port = 8765; allowedOrigins = @($origins); token = $token; paperWidth = '58mm'; printers = @($printerConfigs) }
+    $localUrl = Format-AgentLocalUrl $port
+    $config = [ordered]@{ port = $port; allowedOrigins = @($origins); token = $token; paperWidth = '58mm'; printers = @($printerConfigs) }
     [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
-    $tokenText = @('Agendarte Printer Agent', '=======================', ('Generado: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')), ('Token: ' + $token)) -join [Environment]::NewLine
+    $tokenText = @(
+        'Agendarte Printer Agent'
+        '======================='
+        ('Generado: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'))
+        ('Puerto: ' + $port)
+        ('URL local: ' + $localUrl)
+        ('Token: ' + $token)
+    ) -join [Environment]::NewLine
     [System.IO.File]::WriteAllText($tokenPath, $tokenText, [System.Text.UTF8Encoding]::new($false))
 
     Stop-Agent
@@ -136,7 +161,7 @@ function Install-Agent([string[]]$origins, [object[]]$selectedPrinters) {
     # La interfaz recibe el token apenas termina la instalación. La salud del
     # agente se comprueba desde el temporizador de la ventana para que una
     # demora de localhost nunca deje el configurador bloqueado.
-    return [pscustomobject]@{ Token = $token; EdgePolicyApplied = $edgePolicyApplied }
+    return [pscustomobject]@{ Token = $token; Port = $port; LocalUrl = $localUrl; EdgePolicyApplied = $edgePolicyApplied }
 }
 
 if ($Worker) {
@@ -144,10 +169,12 @@ if ($Worker) {
         if (-not (Test-Path -LiteralPath $RequestPath)) { throw 'No se encontró la solicitud de configuración.' }
         $requestJson = [System.IO.File]::ReadAllText($RequestPath, [System.Text.UTF8Encoding]::new($false))
         $payload = $requestJson | ConvertFrom-Json
-        $installResult = Install-Agent $payload.Origins $payload.Printers
+        $installResult = Install-Agent $payload.Origins $payload.Printers ([int]$payload.Port)
         $result = [pscustomobject]@{
             Success = $true
             Token = $installResult.Token
+            Port = [int]$installResult.Port
+            LocalUrl = [string]$installResult.LocalUrl
             Printers = @($payload.Printers)
             EdgePolicyApplied = [bool]$installResult.EdgePolicyApplied
             Error = ''
@@ -158,6 +185,8 @@ if ($Worker) {
         $result = [pscustomobject]@{
             Success = $false
             Token = ''
+            Port = 0
+            LocalUrl = ''
             Printers = @()
             EdgePolicyApplied = $false
             Error = $details
@@ -192,9 +221,14 @@ function Show-Notice([string]$message, [string]$title = 'Agendarte Printer Agent
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Agendarte Printer Agent'
 $form.StartPosition = 'CenterScreen'
-$form.Size = New-Object System.Drawing.Size(720, 650)
-$form.MinimumSize = New-Object System.Drawing.Size(720, 650)
+$form.Size = New-Object System.Drawing.Size(720, 710)
+$form.MinimumSize = New-Object System.Drawing.Size(720, 710)
 $form.BackColor = [System.Drawing.Color]::White
+
+$agentPort = Get-ConfiguredAgentPort
+$agentLocalUrl = Format-AgentLocalUrl $agentPort
+$script:agentPort = $agentPort
+$script:agentLocalUrl = $agentLocalUrl
 
 $title = New-Label 'Agendarte Printer Agent' 28 20 500
 $title.Font = New-Object System.Drawing.Font('Segoe UI', 18, [System.Drawing.FontStyle]::Bold)
@@ -210,42 +244,58 @@ $originsBox.Size = New-Object System.Drawing.Size(640, 28)
 $originsBox.Text = 'https://agendarte.uy'
 $form.Controls.Add($originsBox)
 
-$form.Controls.Add((New-Label 'Impresoras instaladas en Windows' 30 176 350))
+$portLabel = New-Label 'Puerto local abierto en este PC' 30 168 350
+$form.Controls.Add($portLabel)
+$portBox = New-Object System.Windows.Forms.TextBox
+$portBox.Location = New-Object System.Drawing.Point(30, 194)
+$portBox.Size = New-Object System.Drawing.Size(520, 28)
+$portBox.ReadOnly = $true
+$portBox.Text = ('{0}  —  {1}' -f $agentPort, $agentLocalUrl)
+$portBox.Font = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($portBox)
+
+$copyPort = New-Object System.Windows.Forms.Button
+$copyPort.Text = 'Copiar URL'
+$copyPort.Location = New-Object System.Drawing.Point(560, 192)
+$copyPort.Size = New-Object System.Drawing.Size(110, 32)
+$form.Controls.Add($copyPort)
+
+$form.Controls.Add((New-Label 'Impresoras instaladas en Windows' 30 240 350))
 $printerList = New-Object System.Windows.Forms.CheckedListBox
-$printerList.Location = New-Object System.Drawing.Point(30, 202)
-$printerList.Size = New-Object System.Drawing.Size(640, 150)
+$printerList.Location = New-Object System.Drawing.Point(30, 266)
+$printerList.Size = New-Object System.Drawing.Size(640, 140)
 $printerList.CheckOnClick = $true
 $printerList.DisplayMember = 'Display'
 $form.Controls.Add($printerList)
 
 $refresh = New-Object System.Windows.Forms.Button
 $refresh.Text = 'Actualizar impresoras'
-$refresh.Location = New-Object System.Drawing.Point(30, 362)
+$refresh.Location = New-Object System.Drawing.Point(30, 416)
 $refresh.Size = New-Object System.Drawing.Size(180, 34)
 $form.Controls.Add($refresh)
 
-$status = New-Label 'El agente todavía no fue configurado.' 30 415 640
+$status = New-Label ('El agente todavía no fue configurado. Quedará en el puerto {0}.' -f $agentPort) 30 468 640
 $status.ForeColor = [System.Drawing.Color]::DarkSlateGray
 $form.Controls.Add($status)
 
-$tokenLabel = New-Label 'Token generado (guardado también en token.txt)' 30 452 450
+$tokenLabel = New-Label 'Token generado (guardado también en token.txt)' 30 504 450
 $form.Controls.Add($tokenLabel)
 $tokenBox = New-Object System.Windows.Forms.TextBox
-$tokenBox.Location = New-Object System.Drawing.Point(30, 478)
+$tokenBox.Location = New-Object System.Drawing.Point(30, 530)
 $tokenBox.Size = New-Object System.Drawing.Size(520, 28)
 $tokenBox.ReadOnly = $true
 $form.Controls.Add($tokenBox)
 
 $copy = New-Object System.Windows.Forms.Button
 $copy.Text = 'Copiar'
-$copy.Location = New-Object System.Drawing.Point(560, 476)
+$copy.Location = New-Object System.Drawing.Point(560, 528)
 $copy.Size = New-Object System.Drawing.Size(110, 32)
 $copy.Enabled = $false
 $form.Controls.Add($copy)
 
 $save = New-Object System.Windows.Forms.Button
 $save.Text = 'Guardar y activar agente'
-$save.Location = New-Object System.Drawing.Point(30, 535)
+$save.Location = New-Object System.Drawing.Point(30, 585)
 $save.Size = New-Object System.Drawing.Size(230, 38)
 $save.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
 $save.ForeColor = [System.Drawing.Color]::White
@@ -255,7 +305,7 @@ $form.Controls.Add($save)
 
 $folder = New-Object System.Windows.Forms.Button
 $folder.Text = 'Abrir carpeta del agente'
-$folder.Location = New-Object System.Drawing.Point(280, 535)
+$folder.Location = New-Object System.Drawing.Point(280, 585)
 $folder.Size = New-Object System.Drawing.Size(190, 38)
 $form.Controls.Add($folder)
 
@@ -274,13 +324,18 @@ function Complete-Install([object]$result) {
     }
     $tokenBox.Text = $result.Token
     $copy.Enabled = $true
+    if ($result.Port -gt 0) {
+        $script:agentPort = [int]$result.Port
+        $script:agentLocalUrl = if ($result.LocalUrl) { [string]$result.LocalUrl } else { Format-AgentLocalUrl $script:agentPort }
+        $portBox.Text = ('{0}  —  {1}' -f $script:agentPort, $script:agentLocalUrl)
+    }
     $installTimer.Stop()
     if ($result.EdgePolicyApplied) {
         $permissionStatus = ' Permiso local de Edge configurado.'
     } else {
         $permissionStatus = ' Edge no permitió configurar la política; aceptá el permiso una vez en el navegador.'
     }
-    $status.Text = ('Agente activo en segundo plano. Token listo para copiar.' + $permissionStatus + ' Impresoras: ' + (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
+    $status.Text = ('Agente activo en el puerto {0} ({1}). Token listo para copiar.{2} Impresoras: {3}' -f $script:agentPort, $script:agentLocalUrl, $permissionStatus, (($result.Printers | ForEach-Object { $_.Name }) -join ', '))
 }
 
 $installTimer.Add_Tick({
@@ -319,6 +374,12 @@ function Refresh-PrinterList {
 }
 
 $refresh.Add_Click({ Refresh-PrinterList })
+$copyPort.Add_Click({
+    if ($script:agentLocalUrl) {
+        [System.Windows.Forms.Clipboard]::SetText($script:agentLocalUrl)
+        $status.Text = ('URL local copiada: {0} (puerto {1}).' -f $script:agentLocalUrl, $script:agentPort)
+    }
+})
 $copy.Add_Click({ if ($tokenBox.Text) { [System.Windows.Forms.Clipboard]::SetText($tokenBox.Text); $status.Text = 'Token copiado al portapapeles.' } })
 $folder.Add_Click({ if (Test-Path $installDir) { Start-Process explorer.exe $installDir } else { [System.Windows.Forms.MessageBox]::Show('La carpeta todavía no existe. Guardá la configuración primero.', 'Agendarte Printer Agent') } })
 $save.Add_Click({
@@ -328,13 +389,13 @@ $save.Add_Click({
         if ($origins.Count -eq 0) { throw 'Ingresá al menos una web autorizada válida.' }
         if ($selected.Count -eq 0) { throw 'Seleccioná al menos una impresora.' }
         $save.Enabled = $false
-        $status.Text = 'Guardando configuración y activando el agente...'
+        $status.Text = ('Guardando configuración y activando el agente en el puerto {0}...' -f $script:agentPort)
         $form.Refresh()
         $selectedForInstall = @($selected)
         $operationId = [Guid]::NewGuid().ToString('N')
         $script:requestPath = Join-Path ([IO.Path]::GetTempPath()) ('agendarte-agent-' + $operationId + '.request.json')
         $script:resultPath = Join-Path ([IO.Path]::GetTempPath()) ('agendarte-agent-' + $operationId + '.result.json')
-        $payload = [pscustomobject]@{ Origins = @($origins); Printers = @($selectedForInstall) }
+        $payload = [pscustomobject]@{ Origins = @($origins); Printers = @($selectedForInstall); Port = [int]$script:agentPort }
         [IO.File]::WriteAllText($script:requestPath, ($payload | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
         $powershell = Get-Command powershell.exe -ErrorAction Stop
         $workerArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Worker -RequestPath "{1}" -ResultPath "{2}"' -f $configuratorScriptPath, $script:requestPath, $script:resultPath
