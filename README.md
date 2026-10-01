@@ -37,7 +37,7 @@ El archivo es público, pero cada instalación conserva su token local. No publi
 4. Marcá las impresoras que querés usar.
 5. Presioná **Guardar y activar agente**.
 
-La ventana muestra las impresoras detectadas, genera el token y permite copiarlo para pegarlo en la configuración de la web. Si volvés a presionar el botón, se genera una configuración nueva y el token anterior deja de funcionar.
+La ventana muestra las impresoras detectadas, el puerto local abierto en ese PC (por defecto `8765`), genera el token y permite copiarlo para pegarlo en la configuración de la web. Si volvés a presionar el botón, se genera una configuración nueva y el token anterior deja de funcionar.
 
 El instalador copia el agente a `%LOCALAPPDATA%\AgendartePrinterAgent`, crea la configuración y registra una tarea oculta para iniciar el servicio al iniciar sesión en Windows.
 

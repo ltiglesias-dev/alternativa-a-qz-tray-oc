@@ -132,6 +132,8 @@ $tokenFile = @(
     'Agendarte Printer Agent'
     '======================='
     ('Generado: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'))
+    ('Puerto: ' + $config.port)
+    ('URL local: http://127.0.0.1:{0}' -f $config.port)
     ('Token: ' + $token)
 ) -join [Environment]::NewLine
 [System.IO.File]::WriteAllText($tokenPath, $tokenFile, [System.Text.UTF8Encoding]::new($false))
@@ -182,6 +184,8 @@ Write-Host ''
 Write-Host 'Instalación completada.' -ForegroundColor Green
 Write-Host ('Directorio: ' + $installDir)
 Write-Host ('Web autorizada: ' + ($origins -join ', '))
+Write-Host ('Puerto local abierto: {0}' -f $config.port) -ForegroundColor Yellow
+Write-Host ('URL local: http://127.0.0.1:{0}' -f $config.port)
 Write-Host ('Impresoras: ' + (($printerConfigs | ForEach-Object { $_.name }) -join ', '))
 if ($edgePolicyApplied) {
     Write-Host 'Permiso local de Microsoft Edge configurado para las webs autorizadas.' -ForegroundColor Green
@@ -194,6 +198,6 @@ Write-Host 'Token local para integrar la web:' -ForegroundColor Yellow
 Write-Host $token
 Write-Host ('Archivo con el token vigente: ' + $tokenPath)
 Write-Host ''
-Write-Host 'API: http://127.0.0.1:8765/health'
-Write-Host 'Para probar: POST http://127.0.0.1:8765/test'
+Write-Host ('API: http://127.0.0.1:{0}/health' -f $config.port)
+Write-Host ('Para probar: POST http://127.0.0.1:{0}/test' -f $config.port)
 Read-Host 'Presioná Enter para cerrar'
